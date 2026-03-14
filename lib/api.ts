@@ -162,7 +162,9 @@ export const getRouters = async () => {
   return response.data;
 };
 export const getRouter = async (id: number) => {
+  console.log('🔍 Appel getRouter pour id:', id);
   const response = await api.get<Router>(`/routers/${id}`);
+  console.log('📦 Réponse getRouter:', response.data);
   return response.data;
 };
 
