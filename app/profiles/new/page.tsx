@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Layout from '@/components/layout/Layout';
 import { useForm } from 'react-hook-form';
@@ -18,7 +18,8 @@ type ProfileForm = {
   is_active: boolean;
 };
 
-export default function NewProfilePage() {
+// Composant principal avec le contenu
+function NewProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -305,5 +306,28 @@ export default function NewProfilePage() {
         </div>
       </div>
     </Layout>
+  );
+}
+
+// Loading fallback
+function LoadingFallback() {
+  return (
+    <Layout>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+// Page principale avec Suspense
+export default function NewProfilePage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <NewProfileContent />
+    </Suspense>
   );
 }

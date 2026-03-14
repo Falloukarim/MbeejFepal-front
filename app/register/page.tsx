@@ -8,6 +8,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { register } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
+import { Wifi, Shield, Lock, Mail, KeyRound, ArrowRight, Star, Headphones, User, Phone } from 'lucide-react';
 
 // Définir le schéma
 const registerSchema = z.object({
@@ -34,11 +36,15 @@ type RegisterForm = {
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useState(() => {
+    setMounted(true);
+  },);
 
   const {
     register: formRegister,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -71,265 +77,342 @@ export default function RegisterPage() {
     }
   };
 
+  if (!mounted) return null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center py-4 sm:py-6 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
-         style={{
-           background: 'linear-gradient(135deg, #ffffff 0%, #fef3c7 50%, #fde68a 100%)'
-         }}>
-      {/* Effets de fond */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 right-0 bottom-0"
-             style={{
-               background: 'radial-gradient(circle at 0% 0%, rgba(217,119,6,0.08) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(217,119,6,0.08) 0%, transparent 50%)'
-             }} />
-        <div className="absolute inset-0"
-             style={{
-               background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\"><path d=\"M0 0 L100 100 M100 0 L0 100\" stroke=\"%23d97706\" stroke-width=\"0.5\" opacity=\"0.05\"/></svg>')",
-               backgroundSize: '50px 50px'
-             }} />
-      </div>
+    <div className="min-h-screen flex items-center justify-center py-2 px-3 relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(200,200,210,0.3)_0%,_transparent_60%),_radial-gradient(ellipse_at_bottom_left,_rgba(180,180,200,0.3)_0%,_transparent_60%)]" />
+      <div className="absolute inset-0" style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23cccccc' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        backgroundSize: '40px 40px'
+      }} />
 
-      <div className="w-full max-w-md relative z-10 my-auto">
-        {/* Carte principale */}
-        <div className="rounded-[32px] shadow-2xl overflow-hidden bg-white/95 backdrop-blur-[20px] border border-[rgba(217,119,6,0.2)] animate-[slideUp_0.8s_cubic-bezier(0.16,1,0.3,1)]">
-          
-          {/* Header avec animation WiFi */}
-          <div className="bg-gradient-to-r from-black via-gray-900 to-gray-800 p-6 sm:p-8 text-center relative overflow-hidden border-b-3 border-[#d97706]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(217,119,6,0.2)_0%,transparent_50%)]"></div>
-            <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,rgba(217,119,6,0.08)_0px,rgba(217,119,6,0.08)_1px,transparent_1px,transparent_20px)]"></div>
+      <div className="w-full max-w-4xl relative z-10 my-auto">
+        {/* Carte principale - Deux colonnes plus petite */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="rounded-3xl shadow-2xl overflow-hidden bg-white/95 backdrop-blur-lg border border-amber-300/30 grid grid-cols-1 md:grid-cols-2"
+        >
+          {/* Colonne gauche - Branding plus compact */}
+          <div className="relative bg-gradient-to-br from-amber-800 via-amber-900 to-amber-950 p-5 text-center md:text-left flex flex-col justify-between min-h-[450px]">
+            {/* Effets de lumière */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,_rgba(255,180,100,0.25)_0%,_transparent_70%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_70%,_rgba(255,160,80,0.25)_0%,_transparent_70%)]" />
             
-            {/* Animation WiFi */}
-            <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <div className="relative z-10">
-                <i className="bi bi-wifi text-5xl bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] bg-clip-text text-transparent animate-[pulse_2s_ease-in-out_infinite] drop-shadow-[0_0_20px_rgba(217,119,6,0.7)]"
-                   style={{ 
-                     WebkitTextFillColor: 'transparent',
-                     display: 'block',
-                     lineHeight: 1
-                   }}></i>
+            {/* Badge Premium */}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="absolute top-3 right-3 bg-gradient-to-r from-amber-700 to-amber-800 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-1"
+            >
+              <Star className="w-2.5 h-2.5 fill-current" />
+              HOTSPOT
+            </motion.div>
+
+            {/* Logo WiFi plus petit */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="relative w-16 h-16 mx-auto md:mx-0 mb-3 mt-4"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-600 to-amber-700 rounded-full opacity-30 animate-pulse" />
+              <div className="absolute inset-1.5 bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 rounded-full flex items-center justify-center shadow-2xl border-2 border-amber-400/50">
+                <Wifi className="w-8 h-8 text-white" strokeWidth={2.5} />
               </div>
+              <motion.div
+                animate={{ scale: [1, 1.6, 2.2], opacity: [0.5, 0.3, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                className="absolute inset-0 border-2 border-amber-500 rounded-full"
+              />
+              <motion.div
+                animate={{ scale: [1, 2.2, 2.8], opacity: [0.4, 0.2, 0] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                className="absolute inset-0 border-2 border-amber-600 rounded-full"
+              />
+            </motion.div>
+
+            {/* Texte de branding plus compact */}
+            <div className="relative z-10">
+              <motion.h1
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-2xl font-bold text-white mb-1 tracking-tight"
+              >
+                MbeejFepal
+              </motion.h1>
               
-              {/* Vagues WiFi */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="absolute w-12 h-12 border-2 border-[#d97706] rounded-full opacity-30 animate-[ripple_2s_linear_infinite]"></div>
-                <div className="absolute w-16 h-16 border-2 border-[#d97706] rounded-full opacity-20 animate-[ripple_2s_linear_infinite_0.5s]"></div>
-                <div className="absolute w-20 h-20 border-2 border-[#d97706] rounded-full opacity-10 animate-[ripple_2s_linear_infinite_1s]"></div>
-              </div>
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-lg font-bold text-amber-300 mb-2"
+              >
+            
+              </motion.h2>
+              
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-white/80 text-xs leading-relaxed"
+              >
+                Rejoignez la communauté pour profiter de nos services 
+              </motion.p>
             </div>
 
-            {/* Badge */}
-            <div className="bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white px-3 py-1 rounded-full text-xs font-semibold tracking-wide inline-block mb-2 shadow-md uppercase">
-              <i className="bi bi-star-fill mr-1"></i> INSCRIPTION
-            </div>
-
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-1">MbeejFepal</h2>
-            <p className="text-white/75 text-sm">Créez votre compte pour commencer</p>
+            {/* Points forts plus compacts */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="space-y-2 mt-4 mb-4"
+            >
+              {[
+                { icon: Shield, text: 'Connexion sécurisée' },
+                { icon: Lock, text: 'Données chiffrées' },
+                { icon: Headphones, text: 'Support 24/7' }
+              ].map((item, index) => (
+                <div key={index} className="flex items-center gap-2 text-white/90">
+                  <div className="bg-amber-700/50 p-1.5 rounded-lg">
+                    <item.icon className="w-3.5 h-3.5 text-amber-300" />
+                  </div>
+                  <span className="text-xs">{item.text}</span>
+                </div>
+              ))}
+            </motion.div>
           </div>
 
-          {/* Corps de la carte */}
-          <div className="p-6 sm:p-8">
-            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          {/* Colonne droite - Formulaire plus compact */}
+          <div className="p-5 bg-white/95 backdrop-blur-lg overflow-y-auto max-h-[450px]">
+            <form className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
               {/* Nom */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
                   Nom complet
                 </label>
-                <input
-                  {...formRegister('name')}
-                  type="text"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#d97706] focus:border-transparent outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="Jean Dupont"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <input
+                    {...formRegister('name')}
+                    type="text"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-700 focus:border-transparent outline-none transition-all duration-200 bg-white text-sm"
+                    placeholder="mbacké balla"
+                  />
+                </div>
                 {errors.name && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <i className="bi bi-exclamation-circle-fill text-xs"></i>
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
                     {errors.name.message}
                   </p>
                 )}
-              </div>
+              </motion.div>
 
               {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
                   Email
                 </label>
-                <input
-                  {...formRegister('email')}
-                  type="email"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#d97706] focus:border-transparent outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="jean@example.com"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <input
+                    {...formRegister('email')}
+                    type="email"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-700 focus:border-transparent outline-none transition-all duration-200 bg-white text-sm"
+                    placeholder="abdoulkarim@example.com"
+                  />
+                </div>
                 {errors.email && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <i className="bi bi-exclamation-circle-fill text-xs"></i>
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
                     {errors.email.message}
                   </p>
                 )}
-              </div>
+              </motion.div>
 
               {/* Téléphone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
                   Téléphone
                 </label>
-                <input
-                  {...formRegister('phone')}
-                  type="tel"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#d97706] focus:border-transparent outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="77 123 45 67"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <input
+                    {...formRegister('phone')}
+                    type="tel"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-700 focus:border-transparent outline-none transition-all duration-200 bg-white text-sm"
+                    placeholder="77 123 45 67"
+                  />
+                </div>
                 {errors.phone && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <i className="bi bi-exclamation-circle-fill text-xs"></i>
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
                     {errors.phone.message}
                   </p>
                 )}
-              </div>
+              </motion.div>
 
               {/* Mot de passe */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
                   Mot de passe
                 </label>
-                <input
-                  {...formRegister('password')}
-                  type="password"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#d97706] focus:border-transparent outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <KeyRound className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <input
+                    {...formRegister('password')}
+                    type="password"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-700 focus:border-transparent outline-none transition-all duration-200 bg-white text-sm"
+                    placeholder="••••••••"
+                  />
+                </div>
                 {errors.password && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <i className="bi bi-exclamation-circle-fill text-xs"></i>
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
                     {errors.password.message}
                   </p>
                 )}
-              </div>
+              </motion.div>
 
               {/* Confirmation mot de passe */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.7 }}
+              >
+                <label className="block text-xs font-semibold text-amber-800 mb-1">
                   Confirmer le mot de passe
                 </label>
-                <input
-                  {...formRegister('confirmPassword')}
-                  type="password"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-[#d97706] focus:border-transparent outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <KeyRound className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <input
+                    {...formRegister('confirmPassword')}
+                    type="password"
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-700 focus:border-transparent outline-none transition-all duration-200 bg-white text-sm"
+                    placeholder="••••••••"
+                  />
+                </div>
                 {errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <i className="bi bi-exclamation-circle-fill text-xs"></i>
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
                     {errors.confirmPassword.message}
                   </p>
                 )}
-              </div>
+              </motion.div>
 
               {/* Bouton de soumission */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white font-semibold py-2.5 px-6 rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group mt-2"
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
               >
-                <span className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></span>
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                    Création...
-                  </div>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    Créer mon compte
-                    <i className="bi bi-arrow-right group-hover:translate-x-1 transition-transform"></i>
-                  </span>
-                )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-amber-700 via-amber-800 to-amber-900 text-white font-bold py-2.5 px-4 rounded-xl hover:shadow-2xl transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group text-sm mt-1"
+                >
+                  <span className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Création...
+                    </div>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                  )}
+                </button>
+              </motion.div>
+
+              {/* Lien vers connexion */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.9 }}
+                className="text-center"
+              >
+                <p className="text-xs text-amber-700">
+                  Déjà un compte ?{' '}
+                  <Link 
+                    href="/login" 
+                    className="text-amber-600 hover:text-amber-800 font-bold inline-flex items-center gap-1 group transition-colors"
+                  >
+                    Se connecter
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </p>
+              </motion.div>
             </form>
 
-            {/* Lien vers connexion */}
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600">
-                Déjà un compte ?{' '}
-                <Link 
-                  href="/login" 
-                  className="text-[#d97706] hover:text-[#b45309] font-medium transition-colors inline-flex items-center gap-1 group"
-                >
-                  Se connecter
-                  <i className="bi bi-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
-                </Link>
-              </p>
-            </div>
-
             {/* Badges de sécurité */}
-            <div className="mt-4 pt-4 border-t-2 border-[rgba(217,119,6,0.3)]">
-              <div className="flex flex-wrap justify-center gap-2">
-                <span className="flex items-center gap-1 text-gray-600 text-xs px-2 py-1 rounded-lg hover:bg-[rgba(217,119,6,0.1)] hover:text-[#d97706] transition-all">
-                  <i className="bi bi-shield-lock-fill text-[#d97706] text-xs"></i>
-                  Sécurisé
-                </span>
-                <span className="flex items-center gap-1 text-gray-600 text-xs px-2 py-1 rounded-lg hover:bg-[rgba(217,119,6,0.1)] hover:text-[#d97706] transition-all">
-                  <i className="bi bi-incognito text-[#d97706] text-xs"></i>
-                  Privé
-                </span>
-                <span className="flex items-center gap-1 text-gray-600 text-xs px-2 py-1 rounded-lg hover:bg-[rgba(217,119,6,0.1)] hover:text-[#d97706] transition-all">
-                  <i className="bi bi-headset text-[#d97706] text-xs"></i>
-                  Support 24/7
-                </span>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1 }}
+              className="mt-3 pt-3 border-t border-amber-200"
+            >
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { icon: Shield, text: 'Sécurisé', color: 'text-amber-700' },
+                  { icon: Lock, text: 'Chiffré', color: 'text-amber-800' },
+                  { icon: Headphones, text: 'Support', color: 'text-amber-900' }
+                ].map((item, index) => (
+                  <motion.div
+                    key={index}
+                    whileHover={{ scale: 1.05 }}
+                    className="flex flex-col items-center gap-0.5 p-1 rounded-lg hover:bg-amber-100 transition-all cursor-default"
+                  >
+                    <item.icon className={`w-3 h-3 ${item.color}`} />
+                    <span className="text-[9px] text-amber-900 font-medium">{item.text}</span>
+                  </motion.div>
+                ))}
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Copyright */}
-        <div className="mt-3 text-center text-gray-500 text-xs">
-          <i className="bi bi-c-circle me-1"></i>
-          2026 MbeejFepal. Tous droits réservés.
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.1 }}
+          className="mt-2 text-center text-gray-500 text-[10px] font-medium"
+        >
+          © 2026 MbeejFepal. Tous droits réservés.
+        </motion.div>
       </div>
-
-      <style jsx>{`
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes pulse {
-          0%, 100% { 
-            transform: scale(1); 
-            opacity: 1;
-            filter: drop-shadow(0 0 15px rgba(217,119,6,0.5));
-          }
-          50% { 
-            transform: scale(1.1); 
-            opacity: 0.9;
-            filter: drop-shadow(0 0 25px rgba(217,119,6,0.8));
-          }
-        }
-
-        @keyframes ripple {
-          0% {
-            width: 30px;
-            height: 30px;
-            opacity: 0.5;
-            border-color: #d97706;
-          }
-          100% {
-            width: 80px;
-            height: 80px;
-            opacity: 0;
-            border-color: #d97706;
-          }
-        }
-
-        .border-b-3 {
-          border-bottom-width: 3px;
-        }
-      `}</style>
     </div>
   );
 }
