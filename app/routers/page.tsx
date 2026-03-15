@@ -16,43 +16,54 @@ export default function RoutersPage() {
   }, []);
 
   const loadRouters = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8090/routers', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
-      
-      const data = await response.json();
-      
-      if (Array.isArray(data)) {
-        const transformedRouters: Router[] = data.map(item => ({
-          id: item.ID,
-          user_id: item.UserID,
-          router_uuid: item.RouterUUID,
-          zone_id: item.ZoneID,
-          name: item.Name,
-          config_token: item.ConfigToken,
-          is_active: item.IsActive,
-          last_seen: item.LastSeen,
-          created_at: item.CreatedAt
-        })).filter(router => router.id);
-        
-        setRouters(transformedRouters);
-      } else {
-        setRouters([]);
-        toast.error('Format de données invalide');
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      toast.error('Erreur lors du chargement des routeurs');
-    } finally {
-      setLoading(false);
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Non authentifié');
+      return;
     }
-  };
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
+    console.log('📡 Appel API vers:', `${apiUrl}/routers`);
+    
+    const response = await fetch(`${apiUrl}/routers`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('📦 Données reçues:', data);
+    
+    if (Array.isArray(data)) {
+      const transformedRouters: Router[] = data.map(item => ({
+        id: item.ID,
+        user_id: item.UserID,
+        router_uuid: item.RouterUUID,
+        zone_id: item.ZoneID,
+        name: item.Name,
+        config_token: item.ConfigToken,
+        is_active: item.IsActive,
+        last_seen: item.LastSeen,
+        created_at: item.CreatedAt
+      })).filter(router => router.id);
+      
+      setRouters(transformedRouters);
+    } else {
+      console.warn('📦 Données non tableau:', data);
+      setRouters([]);
+    }
+  } catch (error) {
+    console.error('❌ Erreur détaillée:', error);
+    toast.error('Erreur lors du chargement des routeurs');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce routeur ?')) return;
