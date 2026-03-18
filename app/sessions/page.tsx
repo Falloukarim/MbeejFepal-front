@@ -2,21 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
-import { getMySessions } from '@/lib/api';
+import { getMySessions, type Session } from '@/lib/api';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-
-interface Session {
-  id: number;
-  zone_code: string | null;
-  users_id: string;
-  router_id: number;
-  hotspot_id: number;
-  mac_address: string;
-  ip_address: string | null;
-  state: string;
-  created_at: string;
-  expires_at: string;
-}
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -26,12 +15,8 @@ export default function SessionsPage() {
     const fetchSessions = async () => {
       try {
         const data = await getMySessions();
-        console.log('📦 Sessions reçues:', data);
-        
-        // Les données sont déjà au bon format, on les utilise directement
         setSessions(data || []);
       } catch (error) {
-        console.error('❌ Erreur chargement sessions:', error);
         toast.error('Erreur lors du chargement des sessions');
         setSessions([]);
       } finally {
@@ -41,53 +26,32 @@ export default function SessionsPage() {
     fetchSessions();
   }, []);
 
-  // Fonction de formatage des dates
-  const formatDate = (dateString: string | null | undefined, format: 'full' | 'short' | 'time' = 'full') => {
-    if (!dateString) return '-';
+  // Fonction utilitaire pour formater les dates en toute sécurité
+  const formatDate = (dateString: string | undefined | null, formatStr: string, options?: any) => {
+    if (!dateString) return 'Date inconnue';
     
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Date invalide';
-      
-      switch (format) {
-        case 'short':
-          return date.toLocaleString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-          });
-        case 'time':
-          return date.toLocaleString('fr-FR', {
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-        default:
-          return date.toLocaleString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
+      // Vérifier si la date est valide
+      if (isNaN(date.getTime())) {
+        return 'Date invalide';
       }
-    } catch {
+      return format(date, formatStr, options);
+    } catch (error) {
       return 'Date invalide';
     }
   };
 
-  // Calcul du temps restant
-  const getRemainingTime = (expiresAt: string | null | undefined) => {
+  // Fonction pour calculer le temps restant
+  const getRemainingTime = (expiresAt: string | undefined | null) => {
     if (!expiresAt) return null;
     
     try {
       const expiryDate = new Date(expiresAt);
       if (isNaN(expiryDate.getTime())) return null;
       
-      const now = new Date();
-      const diffMs = expiryDate.getTime() - now.getTime();
-      const diffMin = Math.round(diffMs / 60000);
-      
-      return diffMin > 0 ? diffMin : 0;
+      const remaining = Math.round((expiryDate.getTime() - Date.now()) / 60000);
+      return Math.max(0, remaining);
     } catch {
       return null;
     }
@@ -106,12 +70,6 @@ export default function SessionsPage() {
       default:
         return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 border border-gray-200">{state}</span>;
     }
-  };
-
-  // Extraire les 6 premiers caractères de l'UUID pour l'affichage
-  const formatUserId = (userId: string) => {
-    if (!userId) return '-';
-    return userId.substring(0, 6) + '...';
   };
 
   if (loading) {
@@ -147,7 +105,7 @@ export default function SessionsPage() {
       </div>
 
       <div className="relative z-10">
-        {/* En-tête */}
+        {/* En-tête avec badge */}
         <div className="mb-8 animate-[slideUp_0.5s_ease-out]">
           <div className="inline-block bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-3 shadow-md">
             <i className="bi bi-star-fill mr-1"></i> SESSIONS
@@ -156,7 +114,7 @@ export default function SessionsPage() {
           <p className="text-gray-600 mt-2">Consultez toutes vos connexions</p>
         </div>
 
-        {/* Liste des sessions */}
+        {/* Carte principale */}
         <div className="bg-white/95 backdrop-blur-[20px] border border-[rgba(217,119,6,0.2)] rounded-[32px] shadow-xl overflow-hidden animate-[slideUp_0.6s_ease-out]">
           <div className="px-6 py-4 border-b border-[rgba(217,119,6,0.2)] bg-gradient-to-r from-[#fff7e6] to-[#fffbeb]">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
@@ -176,95 +134,55 @@ export default function SessionsPage() {
                     className="px-6 py-5 hover:bg-[rgba(217,119,6,0.05)] transition-colors animate-[slideUp_0.5s_ease-out]"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex-1">
-                        {/* En-tête de la session */}
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-10 h-10 bg-gradient-to-r from-[#d97706] to-[#92400e] rounded-xl flex items-center justify-center text-white text-xl flex-shrink-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-[#d97706] to-[#92400e] rounded-xl flex items-center justify-center text-white text-xl">
                             <i className="bi bi-wifi"></i>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <p className="font-medium text-gray-900">
-                                Session #{session.id}
-                              </p>
-                              {getStateBadge(session.state)}
-                              <span className="text-xs text-gray-500">
-                                {formatDate(session.created_at)}
-                              </span>
-                            </div>
+                          <div>
+                            <p className="font-medium text-gray-900 flex items-center gap-2">
+                              Session #{session.id}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(session.created_at, 'dd MMMM yyyy', { locale: fr })}
+                            </p>
+                          </div>
+                          <div className="ml-auto sm:ml-0">
+                            {getStateBadge(session.state)}
                           </div>
                         </div>
                         
-                        {/* Grille d'informations détaillées */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {/* Utilisateur */}
-                          <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                            <i className="bi bi-person text-[#d97706] text-xs"></i>
-                            <span className="text-gray-500">Utilisateur:</span>
-                            <span className="text-gray-900 font-mono text-xs" title={session.users_id}>
-                              {formatUserId(session.users_id)}
-                            </span>
-                          </div>
-
-                          {/* Routeur */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                           <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
                             <i className="bi bi-router text-[#d97706] text-xs"></i>
                             <span className="text-gray-500">Routeur:</span>
                             <span className="text-gray-900 font-medium">#{session.router_id}</span>
                           </div>
-
-                          {/* Forfait */}
                           <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
                             <i className="bi bi-tag text-[#d97706] text-xs"></i>
                             <span className="text-gray-500">Forfait:</span>
-                            <span className="text-gray-900 font-medium">#{session.hotspot_id}</span>
+                            <span className="text-gray-900 font-medium">#{session.profile_id}</span>
                           </div>
-
-                          {/* Adresse MAC */}
                           <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
                             <i className="bi bi-hash text-[#d97706] text-xs"></i>
                             <span className="text-gray-500">MAC:</span>
                             <span className="text-gray-900 font-mono text-xs">{session.mac_address}</span>
                           </div>
-
-                          {/* IP (si disponible) */}
-                          {session.ip_address && (
-                            <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                              <i className="bi bi-globe text-[#d97706] text-xs"></i>
-                              <span className="text-gray-500">IP:</span>
-                              <span className="text-gray-900 text-xs">{session.ip_address}</span>
-                            </div>
-                          )}
-
-                          {/* Zone (si disponible) */}
-                          {session.zone_code && (
-                            <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                              <i className="bi bi-pin-map text-[#d97706] text-xs"></i>
-                              <span className="text-gray-500">Zone:</span>
-                              <span className="text-gray-900 text-xs">{session.zone_code}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Dates d'expiration */}
-                        <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <i className="bi bi-calendar-plus"></i>
-                            <span>Création: {formatDate(session.created_at)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <i className="bi bi-calendar-x"></i>
-                            <span>Expiration: {formatDate(session.expires_at)}</span>
+                          <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
+                            <i className="bi bi-clock text-[#d97706] text-xs"></i>
+                            <span className="text-gray-500">Expire:</span>
+                            <span className="text-gray-900 text-xs">
+                              {formatDate(session.expires_at, 'dd/MM HH:mm')}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Badge temps restant pour les sessions actives */}
-                      {session.state === 'ACTIVE' && remainingMinutes !== null && remainingMinutes > 0 && (
-                        <div className="flex items-center gap-2 px-4 py-2 bg-[rgba(217,119,6,0.1)] rounded-xl border border-[rgba(217,119,6,0.2)] lg:self-center">
+                      {session.state === 'ACTIVE' && remainingMinutes !== null && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-[rgba(217,119,6,0.1)] rounded-xl border border-[rgba(217,119,6,0.2)]">
                           <i className="bi bi-hourglass-split text-[#d97706] animate-spin"></i>
-                          <span className="text-sm text-[#d97706] font-medium whitespace-nowrap">
+                          <span className="text-xs text-[#d97706] font-medium">
                             {remainingMinutes} min restantes
                           </span>
                         </div>
