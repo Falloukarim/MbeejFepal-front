@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createRouter } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { Check, Copy } from 'lucide-react';
 
 const routerSchema = z.object({
   name: z.string().min(3, 'Le nom doit contenir au moins 3 caractères'),
@@ -19,6 +20,7 @@ export default function NewRouterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [command, setCommand] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const {
     register,
@@ -47,7 +49,8 @@ export default function NewRouterPage() {
   const copyCommand = () => {
     if (command) {
       navigator.clipboard.writeText(command);
-      toast.success('Commande copiée dans le presse-papiers !');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
     }
   };
 
@@ -107,12 +110,35 @@ export default function NewRouterPage() {
               <pre className="bg-black text-white p-4 rounded-lg overflow-x-auto text-sm mb-4 font-mono">
                 {command}
               </pre>
+              
+              {/* Bouton copie avec effet vert */}
               <button
                 onClick={copyCommand}
-                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold py-2 px-4 rounded-lg hover:from-amber-600 hover:to-amber-700 transition-all shadow-md hover:shadow-lg"
+                className={`w-full font-semibold py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${
+                  copied
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white'
+                }`}
               >
-                📋 Copier la commande
+                {copied ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Commande copiée !
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-5 h-5" />
+                    Copier la commande
+                  </>
+                )}
               </button>
+              
+              {/* Message d'instruction en bas */}
+              {copied && (
+                <div className="mt-4 text-sm text-center text-gray-600 bg-gray-100 p-3 rounded-lg border border-gray-200">
+                  Tapez ensuite <span className="font-mono font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">/import monwifi</span> pour exécuter le fichier
+                </div>
+              )}
             </div>
           )}
         </div>
