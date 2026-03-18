@@ -26,6 +26,37 @@ export default function SessionsPage() {
     fetchSessions();
   }, []);
 
+  // Fonction utilitaire pour formater les dates en toute sécurité
+  const formatDate = (dateString: string | undefined | null, formatStr: string, options?: any) => {
+    if (!dateString) return 'Date inconnue';
+    
+    try {
+      const date = new Date(dateString);
+      // Vérifier si la date est valide
+      if (isNaN(date.getTime())) {
+        return 'Date invalide';
+      }
+      return format(date, formatStr, options);
+    } catch (error) {
+      return 'Date invalide';
+    }
+  };
+
+  // Fonction pour calculer le temps restant
+  const getRemainingTime = (expiresAt: string | undefined | null) => {
+    if (!expiresAt) return null;
+    
+    try {
+      const expiryDate = new Date(expiresAt);
+      if (isNaN(expiryDate.getTime())) return null;
+      
+      const remaining = Math.round((expiryDate.getTime() - Date.now()) / 60000);
+      return Math.max(0, remaining);
+    } catch {
+      return null;
+    }
+  };
+
   const getStateBadge = (state: string) => {
     switch (state) {
       case 'ACTIVE':
@@ -94,68 +125,72 @@ export default function SessionsPage() {
 
           {sessions.length > 0 ? (
             <div className="divide-y divide-[rgba(217,119,6,0.1)]">
-              {sessions.map((session, index) => (
-                <div 
-                  key={session.id} 
-                  className="px-6 py-5 hover:bg-[rgba(217,119,6,0.05)] transition-colors animate-[slideUp_0.5s_ease-out]"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-gradient-to-r from-[#d97706] to-[#92400e] rounded-xl flex items-center justify-center text-white text-xl">
-                          <i className="bi bi-wifi"></i>
+              {sessions.map((session, index) => {
+                const remainingMinutes = getRemainingTime(session.expires_at);
+                
+                return (
+                  <div 
+                    key={session.id} 
+                    className="px-6 py-5 hover:bg-[rgba(217,119,6,0.05)] transition-colors animate-[slideUp_0.5s_ease-out]"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-[#d97706] to-[#92400e] rounded-xl flex items-center justify-center text-white text-xl">
+                            <i className="bi bi-wifi"></i>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 flex items-center gap-2">
+                              Session #{session.id}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(session.created_at, 'dd MMMM yyyy', { locale: fr })}
+                            </p>
+                          </div>
+                          <div className="ml-auto sm:ml-0">
+                            {getStateBadge(session.state)}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900 flex items-center gap-2">
-                            Session #{session.id}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {format(new Date(session.created_at), 'dd MMMM yyyy', { locale: fr })}
-                          </p>
-                        </div>
-                        <div className="ml-auto sm:ml-0">
-                          {getStateBadge(session.state)}
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                          <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
+                            <i className="bi bi-router text-[#d97706] text-xs"></i>
+                            <span className="text-gray-500">Routeur:</span>
+                            <span className="text-gray-900 font-medium">#{session.router_id}</span>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
+                            <i className="bi bi-tag text-[#d97706] text-xs"></i>
+                            <span className="text-gray-500">Forfait:</span>
+                            <span className="text-gray-900 font-medium">#{session.profile_id}</span>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
+                            <i className="bi bi-hash text-[#d97706] text-xs"></i>
+                            <span className="text-gray-500">MAC:</span>
+                            <span className="text-gray-900 font-mono text-xs">{session.mac_address}</span>
+                          </div>
+                          <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
+                            <i className="bi bi-clock text-[#d97706] text-xs"></i>
+                            <span className="text-gray-500">Expire:</span>
+                            <span className="text-gray-900 text-xs">
+                              {formatDate(session.expires_at, 'dd/MM HH:mm')}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                        <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                          <i className="bi bi-router text-[#d97706] text-xs"></i>
-                          <span className="text-gray-500">Routeur:</span>
-                          <span className="text-gray-900 font-medium">#{session.router_id}</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                          <i className="bi bi-tag text-[#d97706] text-xs"></i>
-                          <span className="text-gray-500">Forfait:</span>
-                          <span className="text-gray-900 font-medium">#{session.profile_id}</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                          <i className="bi bi-hash text-[#d97706] text-xs"></i>
-                          <span className="text-gray-500">MAC:</span>
-                          <span className="text-gray-900 font-mono text-xs">{session.mac_address}</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                          <i className="bi bi-clock text-[#d97706] text-xs"></i>
-                          <span className="text-gray-500">Expire:</span>
-                          <span className="text-gray-900 text-xs">
-                            {format(new Date(session.expires_at), 'dd/MM HH:mm')}
+
+                      {session.state === 'ACTIVE' && remainingMinutes !== null && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-[rgba(217,119,6,0.1)] rounded-xl border border-[rgba(217,119,6,0.2)]">
+                          <i className="bi bi-hourglass-split text-[#d97706] animate-spin"></i>
+                          <span className="text-xs text-[#d97706] font-medium">
+                            {remainingMinutes} min restantes
                           </span>
                         </div>
-                      </div>
+                      )}
                     </div>
-
-                    {session.state === 'ACTIVE' && (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-[rgba(217,119,6,0.1)] rounded-xl border border-[rgba(217,119,6,0.2)]">
-                        <i className="bi bi-hourglass-split text-[#d97706] animate-spin"></i>
-                        <span className="text-xs text-[#d97706] font-medium">
-                          {Math.max(0, Math.round((new Date(session.expires_at).getTime() - Date.now()) / 60000))} min restantes
-                        </span>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="px-6 py-16 text-center">
