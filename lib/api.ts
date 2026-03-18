@@ -56,14 +56,16 @@ export interface Transaction {
 
 export interface Session {
   id: number;
+  zone_code: string | null;
+  users_id: string;
   router_id: number;
-  profile_id: number;
+  hotspot_id: number;
   mac_address: string;
+  ip_address: string | null;
   state: 'CREATED' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
   created_at: string;
   expires_at: string;
 }
-
 export interface Payment {
   id: number;
   amount: number;
