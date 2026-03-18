@@ -26,10 +26,24 @@ export default function SessionsPage() {
     const fetchSessions = async () => {
       try {
         const data = await getMySessions();
-        console.log('📦 Sessions reçues:', data);
+        console.log('📦 Sessions reçues (brut):', data);
         
-        // Les données sont déjà au bon format, on les utilise directement
-        setSessions(data || []);
+        // Adapter les données (majuscules → minuscules)
+        const adaptedSessions = data.map((item: any) => ({
+          id: item.ID,
+          zone_code: item.ZoneCode || null,
+          users_id: item.UserID,
+          router_id: item.RouterID,
+          hotspot_id: item.HotspotID,
+          mac_address: item.MacAddress,
+          ip_address: item.IpAddress || null,
+          state: item.State || 'CREATED',
+          created_at: item.CreatedAt,
+          expires_at: item.ExpiresAt
+        })).filter(session => session.id);
+        
+        console.log('✅ Sessions adaptées:', adaptedSessions);
+        setSessions(adaptedSessions || []);
       } catch (error) {
         console.error('❌ Erreur chargement sessions:', error);
         toast.error('Erreur lors du chargement des sessions');
@@ -227,24 +241,6 @@ export default function SessionsPage() {
                             <span className="text-gray-500">MAC:</span>
                             <span className="text-gray-900 font-mono text-xs">{session.mac_address}</span>
                           </div>
-
-                          {/* IP (si disponible) */}
-                          {session.ip_address && (
-                            <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                              <i className="bi bi-globe text-[#d97706] text-xs"></i>
-                              <span className="text-gray-500">IP:</span>
-                              <span className="text-gray-900 text-xs">{session.ip_address}</span>
-                            </div>
-                          )}
-
-                          {/* Zone (si disponible) */}
-                          {session.zone_code && (
-                            <div className="flex items-center gap-2 p-2 bg-[rgba(217,119,6,0.05)] rounded-lg">
-                              <i className="bi bi-pin-map text-[#d97706] text-xs"></i>
-                              <span className="text-gray-500">Zone:</span>
-                              <span className="text-gray-900 text-xs">{session.zone_code}</span>
-                            </div>
-                          )}
                         </div>
 
                         {/* Dates d'expiration */}
