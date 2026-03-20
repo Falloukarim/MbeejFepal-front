@@ -16,54 +16,56 @@ export default function RoutersPage() {
   }, []);
 
   const loadRouters = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error('Non authentifié');
-      return;
-    }
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
-    console.log('📡 Appel API vers:', `${apiUrl}/routers`);
-    
-    const response = await fetch(`${apiUrl}/routers`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Non authentifié');
+        return;
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('📦 Données reçues:', data);
-    
-    if (Array.isArray(data)) {
-      const transformedRouters: Router[] = data.map(item => ({
-        id: item.ID,
-        user_id: item.UserID,
-        router_uuid: item.RouterUUID,
-        zone_id: item.ZoneID,
-        name: item.Name,
-        config_token: item.ConfigToken,
-        is_active: item.IsActive,
-        last_seen: item.LastSeen,
-        created_at: item.CreatedAt
-      })).filter(router => router.id);
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
+      console.log('📡 Appel API vers:', `${apiUrl}/routers`);
       
-      setRouters(transformedRouters);
-    } else {
-      console.warn('📦 Données non tableau:', data);
-      setRouters([]);
+      const response = await fetch(`${apiUrl}/routers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 Données reçues:', data);
+      
+      if (Array.isArray(data)) {
+        const transformedRouters: Router[] = data.map(item => ({
+          id: item.ID,
+          user_id: item.UserID,
+          router_uuid: item.RouterUUID,
+          zone_id: item.ZoneID,
+          name: item.Name,
+          config_token: item.ConfigToken,
+          is_active: item.IsActive,
+          last_seen: item.LastSeen,
+          created_at: item.CreatedAt,
+          connection_status: item.ConnectionStatus || 'never_connected',
+          status_display: item.StatusDisplay || 'Statut inconnu'
+        })).filter(router => router.id);
+        
+        setRouters(transformedRouters);
+      } else {
+        console.warn('📦 Données non tableau:', data);
+        setRouters([]);
+      }
+    } catch (error) {
+      console.error('❌ Erreur détaillée:', error);
+      toast.error('Erreur lors du chargement des routeurs');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('❌ Erreur détaillée:', error);
-    toast.error('Erreur lors du chargement des routeurs');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce routeur ?')) return;
@@ -86,7 +88,6 @@ export default function RoutersPage() {
     try {
       await navigator.clipboard.writeText(command);
       
-      // Animation de succès
       setTimeout(() => {
         setCopyingId(null);
         toast.success('✓ Commande copiée dans le presse-papiers !', {
@@ -119,6 +120,28 @@ export default function RoutersPage() {
       });
     } catch {
       return 'Date invalide';
+    }
+  };
+
+  const getStatusBadge = (router: Router) => {
+    if (router.connection_status === 'online') {
+      return {
+        color: 'bg-green-50 text-green-700 border-green-200',
+        dot: 'bg-green-500 animate-pulse',
+        text: 'En ligne'
+      };
+    } else if (router.connection_status === 'offline') {
+      return {
+        color: 'bg-red-50 text-red-700 border-red-200',
+        dot: 'bg-red-500',
+        text: 'Hors ligne'
+      };
+    } else {
+      return {
+        color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        dot: 'bg-yellow-500',
+        text: 'Jamais connecté'
+      };
     }
   };
 
@@ -202,58 +225,195 @@ export default function RoutersPage() {
                   <tr className="border-b border-[rgba(217,119,6,0.1)] bg-gradient-to-r from-gray-50/50 to-white/50">
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Routeur</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Statut</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Dernière connexion</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Configuration</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Forfaits</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Créé le</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                  </tr>
+                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[rgba(217,119,6,0.1)]">
-                  {routers.map((router) => (
-                    <tr key={router.id} className="hover:bg-[rgba(217,119,6,0.02)] transition-colors group">
-                      {/* Nom du routeur */}
-                      <td className="px-6 py-4">
+                  {routers.map((router) => {
+                    const status = getStatusBadge(router);
+                    return (
+                      <tr key={router.id} className="hover:bg-[rgba(217,119,6,0.02)] transition-colors group">
+                        {/* Nom du routeur */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <svg className="w-8 h-8 text-[#d97706]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M5 12.5C7.5 10 12.5 10 15 12.5" strokeLinecap="round"/>
+                                <path d="M2 8.5C6 4.5 14 4.5 18 8.5" strokeLinecap="round" strokeOpacity="0.7"/>
+                                <path d="M8 16.5L12 12.5L16 16.5" strokeLinecap="round" strokeWidth="2"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{router.name || 'Routeur sans nom'}</div>
+                              <div className="text-xs text-gray-500">ID: {router.id}</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Statut de connexion */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${status.dot}`}></span>
+                            <span className={`text-sm font-medium px-2 py-1 rounded-full ${status.color}`}>
+                              {status.text}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Dernière connexion */}
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-600">
+                            {router.last_seen ? formatDate(router.last_seen) : 'Jamais'}
+                          </span>
+                        </td>
+
+                        {/* Configuration avec animation */}
+                        <td className="px-6 py-4">
+                          {router.config_token ? (
+                            <button
+                              onClick={() => copyCommand(router.id!, router.config_token!)}
+                              disabled={copyingId === router.id}
+                              className={`
+                                flex items-center gap-2 px-3 py-1.5 rounded-lg
+                                transition-all duration-300 text-sm font-medium
+                                ${copyingId === router.id
+                                  ? 'bg-green-500 text-white scale-105'
+                                  : 'bg-[rgba(217,119,6,0.08)] text-[#d97706] hover:bg-[#d97706] hover:text-white'
+                                }
+                              `}
+                            >
+                              {copyingId === router.id ? (
+                                <>
+                                  <svg className="w-4 h-4 animate-[bounce_0.5s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                  <span>Copié !</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                  </svg>
+                                  <span>Copier la commande</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">Non configuré</span>
+                          )}
+                        </td>
+
+                        {/* Forfaits */}
+                        <td className="px-6 py-4">
+                          <Link
+                            href={`/routers/${router.id}/profiles`}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgba(217,119,6,0.08)] text-[#d97706] rounded-lg hover:bg-[#d97706] hover:text-white transition-all duration-300 text-sm font-medium group"
+                          >
+                            <svg className="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20.59 13.41l-2.17 2.17a4 4 0 0 1-5.66 0L4 6.99V4h2.99l8.59 8.59a4 4 0 0 1 0 5.66z"></path>
+                              <line x1="6" y1="12" x2="8" y2="14"></line>
+                            </svg>
+                            Gérer
+                          </Link>
+                        </td>
+
+                        {/* Date de création */}
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {router.created_at ? formatDate(router.created_at) : 'N/A'}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/routers/${router.id}`}
+                              className="p-2 text-gray-500 hover:text-[#d97706] hover:bg-[rgba(217,119,6,0.08)] rounded-lg transition-all"
+                              title="Modifier"
+                            >
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+                                <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+                              </svg>
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(router.id!)}
+                              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Supprimer"
+                            >
+                              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Cartes pour mobile/tablette */}
+            <div className="lg:hidden space-y-4 p-4">
+              {routers.map((router) => {
+                const status = getStatusBadge(router);
+                return (
+                  <div key={router.id} className="bg-white rounded-xl border border-[rgba(217,119,6,0.1)] shadow-sm hover:shadow-md transition-all overflow-hidden">
+                    {/* En-tête de la carte */}
+                    <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="relative">
                             <svg className="w-8 h-8 text-[#d97706]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                               <path d="M5 12.5C7.5 10 12.5 10 15 12.5" strokeLinecap="round"/>
                               <path d="M2 8.5C6 4.5 14 4.5 18 8.5" strokeLinecap="round" strokeOpacity="0.7"/>
-                              <path d="M8 16.5L12 12.5L16 16.5" strokeLinecap="round" strokeWidth="2"/>
                             </svg>
+                            <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${status.dot}`}></span>
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">{router.name || 'Routeur sans nom'}</div>
-                            <div className="text-xs text-gray-500">ID: {router.id}</div>
+                            <h3 className="font-semibold text-gray-900">{router.name || 'Routeur sans nom'}</h3>
+                            <p className="text-xs text-gray-500">ID: {router.id}</p>
                           </div>
                         </div>
-                      </td>
+                        <span className={`text-xs font-medium px-3 py-1.5 rounded-full border ${status.color}`}>
+                          {status.text}
+                        </span>
+                      </div>
+                    </div>
 
-                      {/* Statut */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${router.is_active ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                          <span className={`text-sm font-medium ${router.is_active ? 'text-green-700' : 'text-gray-600'}`}>
-                            {router.is_active ? 'Actif' : 'Inactif'}
-                          </span>
-                          {router.last_seen && (
-                            <span className="text-xs text-gray-400 ml-2">
-                              • vu {formatDate(router.last_seen).split(' ')[1]}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                    {/* Informations détaillées */}
+                    <div className="p-4 space-y-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Dernière connexion</span>
+                        <span className="font-medium text-gray-900">
+                          {router.last_seen ? formatDate(router.last_seen) : 'Jamais'}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Créé le</span>
+                        <span className="font-medium text-gray-900">
+                          {router.created_at ? formatDate(router.created_at) : 'N/A'}
+                        </span>
+                      </div>
 
-                      {/* Configuration avec animation */}
-                      <td className="px-6 py-4">
+                      {/* Actions principales avec animation */}
+                      <div className="grid grid-cols-2 gap-3 mt-4">
                         {router.config_token ? (
                           <button
                             onClick={() => copyCommand(router.id!, router.config_token!)}
                             disabled={copyingId === router.id}
                             className={`
-                              flex items-center gap-2 px-3 py-1.5 rounded-lg
+                              flex items-center justify-center gap-2 py-2.5 rounded-xl
                               transition-all duration-300 text-sm font-medium
                               ${copyingId === router.id
-                                ? 'bg-green-500 text-white scale-105'
+                                ? 'bg-green-500 text-white scale-105 col-span-2'
                                 : 'bg-[rgba(217,119,6,0.08)] text-[#d97706] hover:bg-[#d97706] hover:text-white'
                               }
                             `}
@@ -263,198 +423,64 @@ export default function RoutersPage() {
                                 <svg className="w-4 h-4 animate-[bounce_0.5s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
-                                <span>Copié !</span>
+                                <span>Commande copiée !</span>
                               </>
                             ) : (
                               <>
-                                <svg className="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
-                                <span>Copier la commande</span>
+                                <span>Copier commande</span>
                               </>
                             )}
                           </button>
                         ) : (
-                          <span className="text-sm text-gray-400">Non configuré</span>
+                          <div className="col-span-2 py-2.5 bg-gray-50 text-gray-400 rounded-xl text-sm text-center">
+                            Non configuré
+                          </div>
                         )}
-                      </td>
-
-                      {/* Forfaits */}
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/routers/${router.id}/profiles`}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[rgba(217,119,6,0.08)] text-[#d97706] rounded-lg hover:bg-[#d97706] hover:text-white transition-all duration-300 text-sm font-medium group"
-                        >
-                          <svg className="w-4 h-4 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M20.59 13.41l-2.17 2.17a4 4 0 0 1-5.66 0L4 6.99V4h2.99l8.59 8.59a4 4 0 0 1 0 5.66z"></path>
-                            <line x1="6" y1="12" x2="8" y2="14"></line>
-                          </svg>
-                          Gérer
-                        </Link>
-                      </td>
-
-                      {/* Date de création */}
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {router.created_at ? formatDate(router.created_at) : 'N/A'}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        
+                        {(!router.config_token || copyingId !== router.id) && (
                           <Link
-                            href={`/routers/${router.id}`}
-                            className="p-2 text-gray-500 hover:text-[#d97706] hover:bg-[rgba(217,119,6,0.08)] rounded-lg transition-all"
-                            title="Modifier"
+                            href={`/routers/${router.id}/profiles`}
+                            className="flex items-center justify-center gap-2 py-2.5 bg-[rgba(217,119,6,0.08)] text-[#d97706] rounded-xl hover:bg-[#d97706] hover:text-white transition-all text-sm font-medium"
                           >
-                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
-                              <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20.59 13.41l-2.17 2.17a4 4 0 0 1-5.66 0L4 6.99V4h2.99l8.59 8.59a4 4 0 0 1 0 5.66z"></path>
                             </svg>
+                            Forfaits
                           </Link>
-                          <button
-                            onClick={() => handleDelete(router.id!)}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Supprimer"
-                          >
-                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Cartes pour mobile/tablette */}
-            <div className="lg:hidden space-y-4 p-4">
-              {routers.map((router) => (
-                <div key={router.id} className="bg-white rounded-xl border border-[rgba(217,119,6,0.1)] shadow-sm hover:shadow-md transition-all overflow-hidden">
-                  {/* En-tête de la carte */}
-                  <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <svg className="w-8 h-8 text-[#d97706]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M5 12.5C7.5 10 12.5 10 15 12.5" strokeLinecap="round"/>
-                            <path d="M2 8.5C6 4.5 14 4.5 18 8.5" strokeLinecap="round" strokeOpacity="0.7"/>
-                          </svg>
-                          <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white
-                            ${router.is_active ? 'bg-green-500' : 'bg-gray-400'}`}>
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{router.name || 'Routeur sans nom'}</h3>
-                          <p className="text-xs text-gray-500">ID: {router.id}</p>
-                        </div>
+                        )}
                       </div>
-                      <span className={`text-xs font-medium px-3 py-1.5 rounded-full border
-                        ${router.is_active 
-                          ? 'bg-green-50 text-green-700 border-green-200' 
-                          : 'bg-gray-50 text-gray-600 border-gray-200'
-                        }`}>
-                        {router.is_active ? 'Actif' : 'Inactif'}
-                      </span>
-                    </div>
-                  </div>
 
-                  {/* Informations détaillées */}
-                  <div className="p-4 space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">Dernière activité</span>
-                      <span className="font-medium text-gray-900">
-                        {router.last_seen ? formatDate(router.last_seen) : 'Jamais'}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">Créé le</span>
-                      <span className="font-medium text-gray-900">
-                        {router.created_at ? formatDate(router.created_at) : 'N/A'}
-                      </span>
-                    </div>
-
-                    {/* Actions principales avec animation */}
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      {router.config_token ? (
-                        <button
-                          onClick={() => copyCommand(router.id!, router.config_token!)}
-                          disabled={copyingId === router.id}
-                          className={`
-                            flex items-center justify-center gap-2 py-2.5 rounded-xl
-                            transition-all duration-300 text-sm font-medium
-                            ${copyingId === router.id
-                              ? 'bg-green-500 text-white scale-105 col-span-2'
-                              : 'bg-[rgba(217,119,6,0.08)] text-[#d97706] hover:bg-[#d97706] hover:text-white'
-                            }
-                          `}
-                        >
-                          {copyingId === router.id ? (
-                            <>
-                              <svg className="w-4 h-4 animate-[bounce_0.5s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                              <span>Commande copiée !</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                              </svg>
-                              <span>Copier commande</span>
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <div className="col-span-2 py-2.5 bg-gray-50 text-gray-400 rounded-xl text-sm text-center">
-                          Non configuré
-                        </div>
-                      )}
-                      
-                      {(!router.config_token || copyingId !== router.id) && (
+                      {/* Actions d'édition */}
+                      <div className="flex gap-2 pt-2">
                         <Link
-                          href={`/routers/${router.id}/profiles`}
-                          className="flex items-center justify-center gap-2 py-2.5 bg-[rgba(217,119,6,0.08)] text-[#d97706] rounded-xl hover:bg-[#d97706] hover:text-white transition-all text-sm font-medium"
+                          href={`/routers/${router.id}`}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:border-[#d97706] hover:text-[#d97706] transition-all text-sm font-medium"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M20.59 13.41l-2.17 2.17a4 4 0 0 1-5.66 0L4 6.99V4h2.99l8.59 8.59a4 4 0 0 1 0 5.66z"></path>
+                            <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+                            <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
                           </svg>
-                          Forfaits
+                          Modifier
                         </Link>
-                      )}
-                    </div>
-
-                    {/* Actions d'édition */}
-                    <div className="flex gap-2 pt-2">
-                      <Link
-                        href={`/routers/${router.id}`}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:border-[#d97706] hover:text-[#d97706] transition-all text-sm font-medium"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
-                          <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
-                        </svg>
-                        Modifier
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(router.id!)}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:border-red-500 hover:text-red-500 hover:bg-red-50 transition-all text-sm font-medium"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                        Supprimer
-                      </button>
+                        <button
+                          onClick={() => handleDelete(router.id!)}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-600 rounded-xl hover:border-red-500 hover:text-red-500 hover:bg-red-50 transition-all text-sm font-medium"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                          Supprimer
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

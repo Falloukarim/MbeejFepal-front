@@ -60,39 +60,51 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
         </svg>
       )
     },
-    ...(user?.role === 'ADMIN' ? [
-      { 
-        name: 'Utilisateurs', 
-        href: '/admin/users', 
-        icon: (isActive: boolean) => (
-          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-        )
-      },
-      { 
-        name: 'Wallets', 
-        href: '/admin/wallets', 
-        icon: (isActive: boolean) => (
-          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 12v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
-            <circle cx="16" cy="12" r="2" />
-          </svg>
-        )
-      },
-      { 
-        name: 'Paiements', 
-        href: '/admin/payments', 
-        icon: (isActive: boolean) => (
-          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
-            <line x1="2" y1="10" x2="22" y2="10" />
-            <circle cx="18" cy="15" r="1" fill="currentColor" />
-          </svg>
-        )
-      },
-    ] : []),
+... (user?.role === 'ADMIN' ? [
+  { 
+    name: 'Utilisateurs', 
+    href: '/admin/users', 
+    icon: (isActive: boolean) => (
+      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    )
+  },
+  { 
+    name: 'Wallets', 
+    href: '/admin/wallets', 
+    icon: (isActive: boolean) => (
+      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 12v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
+        <circle cx="16" cy="12" r="2" />
+      </svg>
+    )
+  },
+  { 
+    name: 'Paiements', 
+    href: '/admin/payments', 
+    icon: (isActive: boolean) => (
+      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+        <circle cx="18" cy="15" r="1" fill="currentColor" />
+      </svg>
+    )
+  },
+  { 
+    name: 'Monitoring', 
+    href: '/monitoring', 
+    icon: (isActive: boolean) => (
+      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 20L15 15M4 4L9 9M12 4L12 20M4 12L20 12M9 9L4 4M15 15L20 20" strokeLinecap="round" />
+        <circle cx="12" cy="12" r="2" />
+        <circle cx="5" cy="5" r="2" />
+        <circle cx="19" cy="19" r="2" />
+      </svg>
+    )
+  },
+] : []),
   ];
 
   return (

@@ -16,7 +16,7 @@ export default function PromoteAdminPage() {
   const loadUsers = async () => {
     try {
       const data = await getUsers();
-      setUsers(data.filter(u => u.role !== 'ADMIN')); // Montrer seulement les non-admins
+      setUsers(data.filter(u => u.role !== 'ADMIN')); 
     } catch (error) {
       toast.error('Erreur chargement utilisateurs');
     } finally {

@@ -19,6 +19,9 @@ export interface Router {
   is_active: boolean;
   last_seen: string | null;
   created_at: string;
+   connection_status?: 'online' | 'offline' | 'never_connected'; // Ajouté
+  status_display?: string; // Ajouté
+  
 }
 
 export interface HotspotProfile {
