@@ -12,7 +12,7 @@ import OfflineRoutersCard from '@/components/OfflineRoutersCard';
 import type { Router } from '@/lib/api';
 
 interface DashboardStats {
-  routers: { total: number; active: number };
+  routers: { total: number; online: number; active?: number }; // ← Ajouter online
   users: { total: number };
   sessions: { active: number };
   revenue: { today: number; month: number };
@@ -188,24 +188,25 @@ export default function MonitoringPage() {
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Routeurs */}
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-6 shadow-lg border border-amber-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-3xl">📡</span>
-              <span className="text-xs text-amber-700 bg-amber-200 px-2 py-1 rounded-full">
-                Routeurs
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">
-              {stats.routers.active} / {formatNumber(stats.routers.total)}
-            </p>
-            <p className="text-sm text-gray-600 mt-1">actifs / total</p>
-            <div className="mt-3 h-1.5 bg-amber-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-600 rounded-full"
-                style={{ width: `${(stats.routers.active / stats.routers.total) * 100}%` }}
-              />
-            </div>
-          </div>
+         {/* Routeurs */}
+<div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-6 shadow-lg border border-amber-200">
+  <div className="flex items-center justify-between mb-2">
+    <span className="text-3xl">📡</span>
+    <span className="text-xs text-amber-700 bg-amber-200 px-2 py-1 rounded-full">
+      Routeurs
+    </span>
+  </div>
+  <p className="text-2xl font-bold text-gray-900">
+    {stats.routers.online} / {stats.routers.total}
+  </p>
+  <p className="text-sm text-gray-600 mt-1">en ligne / total</p> {/* ← Changé */}
+  <div className="mt-3 h-1.5 bg-amber-200 rounded-full overflow-hidden">
+    <div
+      className="h-full bg-amber-600 rounded-full"
+      style={{ width: `${(stats.routers.online / stats.routers.total) * 100}%` }}
+    />
+  </div>
+</div>
 
           {/* Utilisateurs */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 shadow-lg border border-blue-200">
