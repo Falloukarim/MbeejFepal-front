@@ -39,6 +39,8 @@ interface RouterStatus extends Router {
   active_sessions: number;
   total_sessions: number;
   today_revenue: number;
+    admin_active: boolean; // Ajouté pour OfflineRoutersCard
+
 }
 
 interface RecentPayment {
@@ -66,33 +68,39 @@ export default function MonitoringPage() {
   }, []);
 
   const fetchAllData = async () => {
-    try {
-      const [statsRes, sessionsRes, routersRes, paymentsRes] = await Promise.all([
-        api.get('/monitoring/stats'),
-        api.get('/monitoring/active-sessions'),
-        api.get('/monitoring/routers'),
-        api.get('/monitoring/recent-payments'),
-      ]);
+  try {
+    const [statsRes, sessionsRes, routersRes, paymentsRes] = await Promise.all([
+      api.get('/monitoring/stats'),
+      api.get('/monitoring/active-sessions'),
+      api.get('/monitoring/routers'),
+      api.get('/monitoring/recent-payments'),
+    ]);
 
-      setStats(statsRes.data);
-      setActiveSessions(sessionsRes.data || []);
-      
+    setStats(statsRes.data);
+  const now = new Date();
+    const validSessions = (sessionsRes.data || []).filter((session: ActiveSession) => {
+      const expiresAt = new Date(session.expires_at);
+      return expiresAt > now && session.remaining > 0;
+    });
+    
+    setActiveSessions(validSessions);      
       // Transformation typée sans as any
-      const typedRouters: RouterStatus[] = (routersRes.data || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        config_token: item.config_token || '',
-        is_active: item.is_active ?? true,
-        last_seen: item.last_seen || null,
-        created_at: item.created_at || new Date().toISOString(),
-        connection_status: item.connection_status || 'never_connected',
-        status_display: item.status_display || 
-          (item.connection_status === 'online' ? 'En ligne' : 
-           item.connection_status === 'offline' ? 'Hors ligne' : 'Jamais connecté'),
-        active_sessions: item.active_sessions || 0,
-        total_sessions: item.total_sessions || 0,
-        today_revenue: item.today_revenue || 0
-      }));
+     const typedRouters: RouterStatus[] = (routersRes.data || []).map((item: any) => ({
+  id: item.id,
+  name: item.name,
+  config_token: item.config_token || '',
+  is_active: item.is_active ?? true,
+  admin_active: item.is_active ?? true, // Ajouté
+  last_seen: item.last_seen || null,
+  created_at: item.created_at || new Date().toISOString(),
+  connection_status: item.connection_status || 'never_connected',
+  status_display: item.status_display || 
+    (item.connection_status === 'online' ? 'En ligne' : 
+     item.connection_status === 'offline' ? 'Hors ligne' : 'Jamais connecté'),
+  active_sessions: item.active_sessions || 0,
+  total_sessions: item.total_sessions || 0,
+  today_revenue: item.today_revenue || 0
+}));
       
       setRouters(typedRouters);
       setPayments(paymentsRes.data || []);
@@ -325,7 +333,7 @@ export default function MonitoringPage() {
 
         {/* Composant des routeurs inactifs - Plus de as any ! */}
         <div className="px-6 py-4">
-          <OfflineRoutersCard routers={routers as any} />
+          <OfflineRoutersCard routers={routers} />
         </div>
 
         <div className="overflow-x-auto">
