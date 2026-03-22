@@ -6,118 +6,153 @@ import { getRouters, getProfiles, getWallet, getMySessions, type Router, type Ho
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+// Interface étendue pour inclure le statut de connexion
+interface RouterWithStatus extends Router {
+  connection_status?: 'online' | 'offline' | 'never_connected';
+  status_display?: string;
+}
+
 export default function DashboardPage() {
-  const [routers, setRouters] = useState<Router[]>([]);
+  const [routers, setRouters] = useState<RouterWithStatus[]>([]);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      // 1. Récupérer les routeurs
-      const routersData = await getRouters();
-      console.log('📦 Routeurs reçus (brut):', routersData);
-      
-      // Adapter les routeurs
-      const adaptedRouters = routersData.map((item: any) => ({
-        id: item.ID,
-        user_id: item.UserID,
-        name: item.Name || 'Sans nom',
-        config_token: item.ConfigToken,
-        is_active: item.IsActive || false,
-        last_seen: item.LastSeen,
-        created_at: item.CreatedAt
-      })).filter(router => router.id);
-      
-      setRouters(adaptedRouters);
-      console.log('✅ Routeurs adaptés:', adaptedRouters);
-
-      // 2. Récupérer tous les profils
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        const profilesData = await getProfiles();
-        console.log('📦 Profils reçus (brut):', profilesData);
+        // 1. Récupérer les routeurs
+        const routersData = await getRouters();
+        console.log('📦 Routeurs reçus (brut):', routersData);
         
-        // Adapter les profils
-        const adaptedProfiles = profilesData.map((item: any) => ({
-          id: item.id,
-          router_id: item.router_id || item.RouterID,
-          profile_name: item.profile_name || item.ProfileName || 'Sans nom',
-          duration_minutes: item.duration_minutes || item.DurationMinutes || 0,
-          price: item.price || item.Price || 0,
-          currency: item.currency || item.Currency || 'XOF',
-          bandwidth_limit: item.bandwidth_limit || item.BandwidthLimit,
-          is_active: item.is_active || item.IsActive || false,
-          created_at: item.created_at || item.CreatedAt,
-          updated_at: item.updated_at || item.UpdatedAt
-        })).filter(profile => profile.id);
+        // Adapter les routeurs avec calcul du statut de connexion
+        const adaptedRouters = routersData.map((item: any) => {
+          const lastSeen = item.LastSeen ? new Date(item.LastSeen) : null;
+          const now = new Date();
+          const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 10 * 60 * 1000; // 10 minutes
+          
+          let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
+          let statusDisplay = 'Jamais connecté';
+          
+          if (lastSeen) {
+            if (isOnline) {
+              connectionStatus = 'online';
+              statusDisplay = '✅ En ligne';
+            } else {
+              connectionStatus = 'offline';
+              statusDisplay = '⚠️ Hors ligne';
+            }
+          }
+          
+          return {
+            id: item.ID,
+            user_id: item.UserID,
+            name: item.Name || 'Sans nom',
+            config_token: item.ConfigToken,
+            is_active: item.IsActive || false,
+            last_seen: item.LastSeen,
+            created_at: item.CreatedAt,
+            connection_status: connectionStatus,
+            status_display: statusDisplay
+          };
+        }).filter(router => router.id);
         
-        setProfiles(adaptedProfiles);
-        console.log('✅ Profils adaptés:', adaptedProfiles);
+        setRouters(adaptedRouters);
+        console.log('✅ Routeurs adaptés avec statut:', adaptedRouters);
+
+        // 2. Récupérer tous les profils
+        try {
+          const profilesData = await getProfiles();
+          console.log('📦 Profils reçus (brut):', profilesData);
+          
+          const adaptedProfiles = profilesData.map((item: any) => ({
+            id: item.id,
+            router_id: item.router_id || item.RouterID,
+            profile_name: item.profile_name || item.ProfileName || 'Sans nom',
+            duration_minutes: item.duration_minutes || item.DurationMinutes || 0,
+            price: item.price || item.Price || 0,
+            currency: item.currency || item.Currency || 'XOF',
+            bandwidth_limit: item.bandwidth_limit || item.BandwidthLimit,
+            is_active: item.is_active || item.IsActive || false,
+            created_at: item.created_at || item.CreatedAt,
+            updated_at: item.updated_at || item.UpdatedAt
+          })).filter(profile => profile.id);
+          
+          setProfiles(adaptedProfiles);
+          console.log('✅ Profils adaptés:', adaptedProfiles);
+        } catch (error) {
+          console.error('❌ Erreur chargement profils:', error);
+        }
+        
+        // 3. Récupérer wallet et sessions
+        const [walletData, sessionsData] = await Promise.all([
+          getWallet().catch(() => {
+            console.log('⚠️ Wallet non disponible');
+            return null;
+          }),
+          getMySessions().catch(() => {
+            console.log('⚠️ Sessions non disponibles');
+            return [];
+          }),
+        ]);
+        
+        // Adapter le wallet
+        if (walletData) {
+          console.log('📦 Wallet reçu (brut):', walletData);
+          const rawWallet = walletData as any;
+          const adaptedWallet = {
+            id: rawWallet.ID,
+            user_id: rawWallet.UserID,
+            balance: rawWallet.Balance,
+            currency: rawWallet.Currency,
+            created_at: rawWallet.CreatedAt,
+            updated_at: rawWallet.UpdatedAt
+          };
+          console.log('✅ Wallet adapté:', adaptedWallet);
+          setWallet(adaptedWallet);
+        }
+        
+        // Adapter les sessions (filtrer les expirées)
+        if (sessionsData && sessionsData.length > 0) {
+          console.log('📦 Sessions reçues (brut):', sessionsData);
+          const now = new Date();
+          
+          const adaptedSessions = sessionsData
+            .map((item: any) => ({
+              id: item.id || item.ID,
+              zone_code: item.zone_code || item.ZoneCode,
+              users_id: item.users_id || item.UsersID,
+              router_id: item.router_id || item.RouterID,
+              hotspot_id: item.hotspot_id || item.HotspotID,
+              mac_address: item.mac_address || item.MacAddress,
+              ip_address: item.ip_address || item.IpAddress,
+              state: item.state || item.State || 'CREATED',
+              created_at: item.created_at || item.CreatedAt,
+              expires_at: item.expires_at || item.ExpiresAt
+            }))
+            .filter(session => {
+              // Filtrer les sessions expirées
+              if (session.state !== 'ACTIVE') return false;
+              const expiresAt = new Date(session.expires_at);
+              return expiresAt > now;
+            });
+          
+          setSessions(adaptedSessions);
+          console.log('✅ Sessions adaptées et filtrées:', adaptedSessions);
+        }
+        
       } catch (error) {
-        console.error('❌ Erreur chargement profils:', error);
+        console.error('❌ Erreur chargement données:', error);
+        toast.error('Erreur lors du chargement des données');
+      } finally {
+        setLoading(false);
       }
-      
-      // 3. Récupérer wallet et sessions
-      const [walletData, sessionsData] = await Promise.all([
-        getWallet().catch(() => {
-          console.log('⚠️ Wallet non disponible');
-          return null;
-        }),
-        getMySessions().catch(() => {
-          console.log('⚠️ Sessions non disponibles');
-          return [];
-        }),
-      ]);
-      
-      // Adapter le wallet (avec cast any)
-      if (walletData) {
-        console.log('📦 Wallet reçu (brut):', walletData);
-        const rawWallet = walletData as any;
-        const adaptedWallet = {
-          id: rawWallet.ID,
-          user_id: rawWallet.UserID,
-          balance: rawWallet.Balance,
-          currency: rawWallet.Currency,
-          created_at: rawWallet.CreatedAt,
-          updated_at: rawWallet.UpdatedAt
-        };
-        console.log('✅ Wallet adapté:', adaptedWallet);
-        setWallet(adaptedWallet);
-      }
-      
-      // Adapter les sessions
-      if (sessionsData && sessionsData.length > 0) {
-        console.log('📦 Sessions reçues (brut):', sessionsData);
-        
-        const adaptedSessions = sessionsData.map((item: any) => ({
-          id: item.id || item.ID,
-          zone_code: item.zone_code || item.ZoneCode,
-          users_id: item.users_id || item.UsersID,
-          router_id: item.router_id || item.RouterID,
-          hotspot_id: item.hotspot_id || item.HotspotID,
-          mac_address: item.mac_address || item.MacAddress,
-          ip_address: item.ip_address || item.IpAddress,
-          state: item.state || item.State || 'CREATED',
-          created_at: item.created_at || item.CreatedAt,
-          expires_at: item.expires_at || item.ExpiresAt
-        })).filter(session => session.id);
-        
-        setSessions(adaptedSessions);
-        console.log('✅ Sessions adaptées:', adaptedSessions);
-      }
-      
-    } catch (error) {
-      console.error('❌ Erreur chargement données:', error);
-      toast.error('Erreur lors du chargement des données');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  fetchData();
-}, []);
+    };
+    
+    fetchData();
+  }, []);
+
   // Fonction de formatage sécurisé des dates
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Date inconnue';
@@ -134,6 +169,17 @@ useEffect(() => {
     }
   };
 
+  // Fonction pour obtenir le statut d'un routeur
+  const getRouterStatus = (router: RouterWithStatus) => {
+    if (router.connection_status === 'online') {
+      return { text: 'En ligne', color: 'bg-green-500', textColor: 'text-green-400' };
+    } else if (router.connection_status === 'offline') {
+      return { text: 'Hors ligne', color: 'bg-red-500', textColor: 'text-red-400' };
+    } else {
+      return { text: 'Jamais connecté', color: 'bg-yellow-500', textColor: 'text-yellow-400' };
+    }
+  };
+
   // Wallet par défaut robuste
   const safeWallet = {
     balance: wallet?.balance ?? 0,
@@ -145,10 +191,11 @@ useEffect(() => {
     return `${balance.toLocaleString()} ${currency || 'XOF'}`;
   };
 
+  // Statistiques avec le vrai statut de connexion
   const stats = [
     {
-      name: 'Routeurs actifs',
-      value: routers.filter(r => r.is_active).length,
+      name: 'Routeurs en ligne',
+      value: routers.filter(r => r.connection_status === 'online').length,
       total: routers.length,
       icon: '📡',
     },
@@ -311,21 +358,21 @@ useEffect(() => {
               
               <div className="divide-y divide-white/10">
                 {routers.slice(0, 5).map((router) => {
-                  // Sécurité : si l'ID n'existe pas, on ignore cet élément
                   if (!router?.id) return null;
+                  const status = getRouterStatus(router);
                   return (
                     <div key={router.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold
-                          ${router.is_active ? 'bg-[#d97706]' : 'bg-gray-600'}`}>
+                          ${router.connection_status === 'online' ? 'bg-[#d97706]' : 'bg-gray-600'}`}>
                           📡
                         </div>
                         <div>
                           <p className="font-medium text-white">{router.name}</p>
                           <p className="text-xs text-gray-400 flex items-center gap-2">
-                            <span className={`inline-block w-2 h-2 rounded-full ${router.is_active ? 'bg-[#d97706]' : 'bg-gray-500'}`}></span>
-                            {router.is_active ? 'Actif' : 'Inactif'}
-                            {router.last_seen && (
+                            <span className={`inline-block w-2 h-2 rounded-full ${status.color}`}></span>
+                            <span className={status.textColor}>{status.text}</span>
+                            {router.last_seen && router.connection_status !== 'never_connected' && (
                               <>
                                 <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
                                 <span>Vu le {formatDate(router.last_seen)}</span>
@@ -370,7 +417,6 @@ useEffect(() => {
               
               <div className="divide-y divide-white/10">
                 {sessions.filter(s => s.state === 'ACTIVE').slice(0, 5).map((session) => {
-                  // Sécurité : si l'ID n'existe pas, on ignore cet élément
                   if (!session?.id) return null;
                   return (
                     <div key={session.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
