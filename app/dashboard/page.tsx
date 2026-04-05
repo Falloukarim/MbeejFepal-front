@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
-import { getRouters, getProfiles, getWallet, getMySessions, type Router, type HotspotProfile, type Wallet, type Session } from '@/lib/api';
+import { getRouters, getMonitoringRouters,getProfiles, getWallet, getMySessions, type Router, type HotspotProfile, type Wallet, type Session } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
@@ -23,42 +23,25 @@ export default function DashboardPage() {
     const fetchData = async () => {
       try {
         // 1. Récupérer les routeurs
-        const routersData = await getRouters();
-        console.log('📦 Routeurs reçus (brut):', routersData);
-        
-        // Adapter les routeurs avec calcul du statut de connexion
-        const adaptedRouters = routersData.map((item: any) => {
-          const lastSeen = item.LastSeen ? new Date(item.LastSeen) : null;
-          const now = new Date();
-          const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 10 * 60 * 1000; // 10 minutes
-          
-          let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
-          let statusDisplay = 'Jamais connecté';
-          
-          if (lastSeen) {
-            if (isOnline) {
-              connectionStatus = 'online';
-              statusDisplay = '✅ En ligne';
-            } else {
-              connectionStatus = 'offline';
-              statusDisplay = '⚠️ Hors ligne';
-            }
-          }
-          
-          return {
-            id: item.ID,
-            user_id: item.UserID,
-            name: item.Name || 'Sans nom',
-            config_token: item.ConfigToken,
-            is_active: item.IsActive || false,
-            last_seen: item.LastSeen,
-            created_at: item.CreatedAt,
-            connection_status: connectionStatus,
-            status_display: statusDisplay
-          };
-        }).filter(router => router.id);
-        
-        setRouters(adaptedRouters);
+       const monitoringRouters = await getMonitoringRouters();
+console.log('📦 Routeurs monitoring reçus:', monitoringRouters);
+
+const adaptedRouters = monitoringRouters
+  .map((item) => ({
+    id: item.id,
+    name: item.name,
+    config_token: item.config_token || '',
+    is_active: item.is_active ?? true,
+    last_seen: item.last_seen,
+    created_at: item.created_at,
+    connection_status: item.connection_status,
+    status_display: item.status_display ||
+      (item.connection_status === 'online' ? '✅ En ligne' :
+       item.connection_status === 'offline' ? '⚠️ Hors ligne' : 'Jamais connecté')
+  }))
+  .filter(router => router.id);
+
+setRouters(adaptedRouters);
         console.log('✅ Routeurs adaptés avec statut:', adaptedRouters);
 
         // 2. Récupérer tous les profils

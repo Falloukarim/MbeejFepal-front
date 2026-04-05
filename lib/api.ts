@@ -173,6 +173,21 @@ export const getRouter = async (id: number) => {
   return response.data;
 };
 
+interface MonitoringRouter {
+  id: number;
+  name: string;
+  config_token: string;
+  is_active: boolean;
+  last_seen: string | null;
+  created_at: string;
+  connection_status: 'online' | 'offline' | 'never_connected';
+  status_display: string;
+}
+
+export const getMonitoringRouters = async () => {
+  const response = await api.get<MonitoringRouter[]>('/monitoring/routers');
+  return response.data;
+};
 export const createRouter = async (name: string) => {
   const response = await api.post<{ id: number; name: string; config_token: string; command: string }>('/routers', { name });
   return response.data;

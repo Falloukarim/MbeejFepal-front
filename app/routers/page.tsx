@@ -16,31 +16,43 @@ export default function RoutersPage() {
   }, []);
 
   const loadRouters = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Non authentifié');
-        return;
-      }
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Non authentifié');
+      return;
+    }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
-      console.log('📡 Appel API vers:', `${apiUrl}/routers`);
-      
-      const response = await fetch(`${apiUrl}/routers`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
+    const response = await fetch(`${apiUrl}/routers`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+
+    const data = await response.json();
+    console.log('📦 Données reçues:', data);
+
+    if (Array.isArray(data)) {
+      const now = new Date();
+      const transformedRouters: Router[] = data.map(item => {
+        const lastSeen = item.LastSeen ? new Date(item.LastSeen) : null;
+        const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 10 * 60 * 1000;
+        
+        let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
+        let statusDisplay = 'Jamais connecté';
+        
+        if (lastSeen) {
+          if (isOnline) {
+            connectionStatus = 'online';
+            statusDisplay = '✅ En ligne';
+          } else {
+            connectionStatus = 'offline';
+            statusDisplay = '⚠️ Hors ligne';
+          }
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('📦 Données reçues:', data);
-      
-      if (Array.isArray(data)) {
-        const transformedRouters: Router[] = data.map(item => ({
+
+        return {
           id: item.ID,
           user_id: item.UserID,
           router_uuid: item.RouterUUID,
@@ -50,22 +62,22 @@ export default function RoutersPage() {
           is_active: item.IsActive,
           last_seen: item.LastSeen,
           created_at: item.CreatedAt,
-          connection_status: item.ConnectionStatus || 'never_connected',
-          status_display: item.StatusDisplay || 'Statut inconnu'
-        })).filter(router => router.id);
-        
-        setRouters(transformedRouters);
-      } else {
-        console.warn('📦 Données non tableau:', data);
-        setRouters([]);
-      }
-    } catch (error) {
-      console.error('❌ Erreur détaillée:', error);
-      toast.error('Erreur lors du chargement des routeurs');
-    } finally {
-      setLoading(false);
+          connection_status: connectionStatus,
+          status_display: statusDisplay
+        };
+      }).filter(router => router.id);
+
+      setRouters(transformedRouters);
+    } else {
+      setRouters([]);
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur détaillée:', error);
+    toast.error('Erreur lors du chargement des routeurs');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce routeur ?')) return;
