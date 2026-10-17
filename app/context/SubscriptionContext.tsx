@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { getSubscriptionStatus, SubscriptionStatus } from '@/lib/api';
 import { isAuthenticated } from '@/lib/auth';
 import { useRouter, usePathname } from 'next/navigation';
@@ -19,8 +19,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // ✅ MODIFIÉ : retourne le statut
-  const refreshStatus = async (): Promise<SubscriptionStatus | null> => {
+  // ✅ useCallback : identité stable, ne change pas entre les renders
+  const refreshStatus = useCallback(async (): Promise<SubscriptionStatus | null> => {
     if (!isAuthenticated()) {
       setLoading(false);
       return null;
@@ -35,11 +35,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshStatus();
-  }, [pathname]);
+  }, [pathname, refreshStatus]);
 
   useEffect(() => {
     if (loading || !isAuthenticated() || !status) return;
@@ -49,7 +49,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const isPaymentRoute = pathname?.startsWith('/payment');
 
     if (isPublicRoute) return;
-
     if (!status.active && !isSubscriptionRoute && !isPaymentRoute) {
       router.push('/subscription');
     }
