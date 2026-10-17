@@ -2,16 +2,24 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { Loader2, CheckCircle2, AlertCircle, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { isAuthenticated } from '@/lib/auth';
+import { Loader2, CheckCircle2, AlertCircle, ArrowRight, LayoutDashboard, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SubscriptionSuccessPage() {
-  const [phase, setPhase] = useState<'polling' | 'success' | 'timeout'>('polling');
+  const [phase, setPhase] = useState<'polling' | 'success' | 'timeout' | 'no-auth'>('polling');
   const [attempts, setAttempts] = useState(0);
   const { refreshStatus } = useSubscription();
   const hasFinishedRef = useRef(false);
 
   useEffect(() => {
+    // ✅ NOUVEAU : Détecter l'absence de token (cas WebView mobile)
+    if (!isAuthenticated()) {
+      console.log('[SUCCESS] Pas de token — WebView mobile probable');
+      setPhase('no-auth');
+      return;
+    }
+
     if (hasFinishedRef.current) return;
 
     let attemptsCount = 0;
@@ -60,7 +68,10 @@ export default function SubscriptionSuccessPage() {
     window.location.href = '/dashboard';
   };
 
-  // ✅ NOUVEAU : Texte dynamique pour rassurer l'utilisateur
+  const goToLogin = () => {
+    window.location.href = '/login';
+  };
+
   const getPollingMessage = () => {
     if (attempts <= 1) return "Nous vérifions votre paiement...";
     if (attempts < 5) return "Confirmation en cours, merci de patienter...";
@@ -78,19 +89,26 @@ export default function SubscriptionSuccessPage() {
               <Loader2 className="w-10 h-10 text-amber-600 animate-spin" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Activation en cours...</h1>
-            
-            {/* ✅ Message dynamique ici */}
             <p className="text-gray-600 mb-4 min-h-[3rem] flex items-center justify-center transition-all">
               {getPollingMessage()}
             </p>
-            
-            <div className="inline-block px-4 py-2 bg-amber-50 rounded-full text-sm text-amber-700 font-medium">
+            <div className="inline-block px-4 py-2 bg-amber-50 rounded-full text-sm text-amber-700 font-medium mb-6">
               Tentative {attempts} / 30
+            </div>
+            
+            {/* ✅ Bouton de secours toujours dispo */}
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={goToDashboard}
+                className="w-full text-amber-600 hover:text-amber-700 text-sm font-medium hover:underline"
+              >
+                Aller au dashboard manuellement →
+              </button>
             </div>
           </>
         )}
 
-        {/* PHASE 2 : Abonnement activé — bouton cliquable */}
+        {/* PHASE 2 : Abonnement activé */}
         {phase === 'success' && (
           <>
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -111,7 +129,7 @@ export default function SubscriptionSuccessPage() {
           </>
         )}
 
-        {/* PHASE 3 : Timeout — bouton quand même dispo */}
+        {/* PHASE 3 : Timeout */}
         {phase === 'timeout' && (
           <>
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -139,9 +157,37 @@ export default function SubscriptionSuccessPage() {
             </div>
           </>
         )}
+
+        {/* ✅ NOUVEAU : Cas WebView mobile sans token */}
+        {phase === 'no-auth' && (
+          <>
+            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Smartphone className="w-12 h-12 text-blue-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Paiement reçu !</h1>
+            <p className="text-gray-600 mb-6">
+              Votre paiement a bien été enregistré. Pour accéder à votre espace, 
+              rouvrez ce site dans votre navigateur habituel (Chrome, Safari).
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
+              <p className="text-sm text-blue-900 font-medium mb-2">💡 Que faire ?</p>
+              <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <li>Fermez cet onglet ou cette application</li>
+                <li>Ouvrez Chrome ou Safari</li>
+                <li>Allez sur le site MbeejFepal</li>
+                <li>Connectez-vous : votre abonnement est déjà actif !</li>
+              </ul>
+            </div>
+            <button
+              onClick={goToLogin}
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all"
+            >
+              Se connecter
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Mention support si jamais */}
       <p className="mt-6 text-sm text-gray-500 text-center max-w-md">
         Un problème ? Contactez le support à{' '}
         <a href="mailto:support@mbeejfepal.com" className="text-amber-600 hover:underline">
