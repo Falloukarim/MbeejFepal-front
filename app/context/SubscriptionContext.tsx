@@ -2,13 +2,13 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getSubscriptionStatus, SubscriptionStatus } from '@/lib/api';
-import { isAuthenticated } from '@/lib/auth'; // Assurez-vous que ce fichier existe
+import { isAuthenticated } from '@/lib/auth';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface SubscriptionContextType {
   status: SubscriptionStatus | null;
   loading: boolean;
-  refreshStatus: () => Promise<void>;
+  refreshStatus: () => Promise<SubscriptionStatus | null>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -19,47 +19,44 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchStatus = async () => {
-    // Si pas de token, on ne fait pas d'appel API
+  // ✅ MODIFIÉ : retourne le statut
+  const refreshStatus = async (): Promise<SubscriptionStatus | null> => {
     if (!isAuthenticated()) {
       setLoading(false);
-      return;
+      return null;
     }
-    
     try {
       const data = await getSubscriptionStatus();
       setStatus(data);
+      return data;
     } catch (error) {
       console.error('Erreur chargement abonnement', error);
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStatus();
-  }, [pathname]); // Re-vérifier à chaque changement de page
+    refreshStatus();
+  }, [pathname]);
 
-  // Gestion de la redirection
   useEffect(() => {
-    // Ne rien faire si on charge, si on n'est pas connecté, ou si pas de statut
     if (loading || !isAuthenticated() || !status) return;
 
     const isPublicRoute = pathname === '/login' || pathname === '/register';
     const isSubscriptionRoute = pathname?.startsWith('/subscription');
     const isPaymentRoute = pathname?.startsWith('/payment');
-    
-    // Si l'utilisateur est sur une page publique, on ne redirige pas
+
     if (isPublicRoute) return;
 
-    // Si pas actif et pas sur une route d'abonnement ou de paiement -> redirection
     if (!status.active && !isSubscriptionRoute && !isPaymentRoute) {
       router.push('/subscription');
     }
   }, [status, loading, pathname, router]);
 
   return (
-    <SubscriptionContext.Provider value={{ status, loading, refreshStatus: fetchStatus }}>
+    <SubscriptionContext.Provider value={{ status, loading, refreshStatus }}>
       {children}
     </SubscriptionContext.Provider>
   );
