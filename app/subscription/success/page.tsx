@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSubscription } from '@/context/SubscriptionContext';
+import { useSubscription } from '../../context/SubscriptionContext';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 
 export default function SubscriptionSuccessPage() {
