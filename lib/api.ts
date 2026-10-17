@@ -120,6 +120,7 @@ api.interceptors.request.use(
 );
 
 // Intercepteur pour gérer les erreurs
+// Remplacez l'intercepteur existant par celui-ci :
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
@@ -129,10 +130,22 @@ api.interceptors.response.use(
         toast.error('Session expirée, veuillez vous reconnecter');
         window.location.href = '/login';
       }
+    } else if (error.response?.status === 402) {
+      // NOUVEAU : Abonnement requis
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/subscription')) {
+        toast.error('Un abonnement actif est requis.');
+        window.location.href = '/subscription';
+      }
     } else if (error.code === 'ERR_NETWORK') {
       toast.error('Impossible de joindre le serveur. Vérifiez votre connexion.');
     } else if (error.response?.status === 403) {
-      toast.error('Accès non autorisé');
+      // Gérer le cas spécifique de la limite de routeurs
+      const data = error.response.data as any;
+      if (data?.error === 'plan_limit_reached') {
+         toast.error(data.message || 'Limite de routeurs atteinte.');
+      } else {
+         toast.error('Accès non autorisé');
+      }
     } else if (error.response?.status === 500) {
       toast.error('Erreur serveur. Veuillez réessayer plus tard.');
     }
@@ -274,5 +287,62 @@ export const getAllPayments = async () => {
   return response.data;
 };
 
+// ==========================================
+// Abonnements (Subscriptions)
+// ==========================================
+
+export interface SubscriptionPlan {
+  id: number;
+  level: 'level1' | 'level2';
+  name: string;
+  base_price: number;
+  included_routers: number;
+  extra_router_price: number;
+  is_active: boolean;
+}
+
+export interface Subscription {
+  id: number;
+  user_id: string;
+  plan_id: number;
+  plan: SubscriptionPlan;
+  status: 'pending' | 'active' | 'past_due' | 'expired' | 'cancelled';
+  router_count: number;
+  monthly_amount: number;
+  started_at: string;
+  expires_at: string;
+  next_billing_at: string;
+}
+
+export interface SubscriptionStatus {
+  active: boolean;
+  subscription?: Subscription;
+  router_count: number;
+  router_limit: number;
+  can_add_router: boolean;
+  suggested_plan?: SubscriptionPlan;
+}
+
+export const getSubscriptionPlans = async () => {
+  const response = await api.get<SubscriptionPlan[]>('/api/subscription/plans');
+  return response.data;
+};
+
+export const getSubscriptionStatus = async () => {
+  const response = await api.get<SubscriptionStatus>('/api/subscription/status');
+  return response.data;
+};
+
+export const chooseSubscription = async (planId: number) => {
+  const response = await api.post<{ subscription: Subscription; invoice: any; paydunya_url: string }>(
+    '/api/subscription/choose',
+    { plan_id: planId }
+  );
+  return response.data;
+};
+
+export const upgradeToLevel2 = async () => {
+  await api.post('/api/subscription/upgrade');
+};
 
 export default api;
