@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
-import { isAuthenticated } from '@/lib/auth';
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight, LayoutDashboard, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,8 +12,10 @@ export default function SubscriptionSuccessPage() {
   const hasFinishedRef = useRef(false);
 
   useEffect(() => {
-    // ✅ NOUVEAU : Détecter l'absence de token (cas WebView mobile)
-    if (!isAuthenticated()) {
+    // ✅ Vérification directe du token sans import externe
+    const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token');
+    
+    if (!hasToken) {
       console.log('[SUCCESS] Pas de token — WebView mobile probable');
       setPhase('no-auth');
       return;
@@ -33,23 +34,27 @@ export default function SubscriptionSuccessPage() {
       setAttempts(attemptsCount);
       console.log(`[SUCCESS] Tentative ${attemptsCount}/30`);
 
-      const data = await refreshStatus();
-      console.log('[SUCCESS] Statut:', data);
+      try {
+        const data = await refreshStatus();
+        console.log('[SUCCESS] Statut:', data);
 
-      if (hasFinishedRef.current) return;
+        if (hasFinishedRef.current) return;
 
-      if (data?.active) {
-        hasFinishedRef.current = true;
-        setPhase('success');
-        console.log('[SUCCESS] Active = true ! Bouton prêt.');
-        if (intervalId) clearInterval(intervalId);
-        return;
-      }
+        if (data?.active) {
+          hasFinishedRef.current = true;
+          setPhase('success');
+          console.log('[SUCCESS] Active = true ! Bouton prêt.');
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
 
-      if (attemptsCount >= maxAttempts) {
-        hasFinishedRef.current = true;
-        setPhase('timeout');
-        if (intervalId) clearInterval(intervalId);
+        if (attemptsCount >= maxAttempts) {
+          hasFinishedRef.current = true;
+          setPhase('timeout');
+          if (intervalId) clearInterval(intervalId);
+        }
+      } catch (err) {
+        console.error('[SUCCESS] Erreur polling:', err);
       }
     };
 
@@ -82,7 +87,6 @@ export default function SubscriptionSuccessPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col items-center justify-center p-4">
       <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center border border-amber-200">
 
-        {/* PHASE 1 : Polling en cours */}
         {phase === 'polling' && (
           <>
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -95,8 +99,6 @@ export default function SubscriptionSuccessPage() {
             <div className="inline-block px-4 py-2 bg-amber-50 rounded-full text-sm text-amber-700 font-medium mb-6">
               Tentative {attempts} / 30
             </div>
-            
-            {/* ✅ Bouton de secours toujours dispo */}
             <div className="pt-4 border-t border-gray-200">
               <button
                 onClick={goToDashboard}
@@ -108,7 +110,6 @@ export default function SubscriptionSuccessPage() {
           </>
         )}
 
-        {/* PHASE 2 : Abonnement activé */}
         {phase === 'success' && (
           <>
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -129,7 +130,6 @@ export default function SubscriptionSuccessPage() {
           </>
         )}
 
-        {/* PHASE 3 : Timeout */}
         {phase === 'timeout' && (
           <>
             <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -158,7 +158,6 @@ export default function SubscriptionSuccessPage() {
           </>
         )}
 
-        {/* ✅ NOUVEAU : Cas WebView mobile sans token */}
         {phase === 'no-auth' && (
           <>
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -167,7 +166,7 @@ export default function SubscriptionSuccessPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Paiement reçu !</h1>
             <p className="text-gray-600 mb-6">
               Votre paiement a bien été enregistré. Pour accéder à votre espace, 
-              rouvrez ce site dans votre navigateur habituel (Chrome, Safari).
+              rouvrez ce site dans votre navigateur habituel.
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
               <p className="text-sm text-blue-900 font-medium mb-2">💡 Que faire ?</p>
