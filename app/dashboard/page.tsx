@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
-import { getRouters, getMonitoringRouters,getProfiles, getWallet, getMySessions, type Router, type HotspotProfile, type Wallet, type Session } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-
+import { getRouters, getProfiles, getWallet, getMySessions, type Router, type HotspotProfile, type Wallet, type Session } from '@/lib/api';
+import { isAdmin } from '@/lib/auth';
 // Interface étendue pour inclure le statut de connexion
 interface RouterWithStatus extends Router {
   connection_status?: 'online' | 'offline' | 'never_connected';
@@ -22,86 +22,87 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Récupérer les routeurs
-       const monitoringRouters = await getMonitoringRouters();
-console.log('📦 Routeurs monitoring reçus:', monitoringRouters);
+        const routersData = await getRouters();
+        
+        const now = new Date();
+        const adaptedRouters = (routersData as any[])
+          .map((item) => {
+            // L'API Go renvoie du PascalCase (ID, Name, LastSeen, etc.)
+            const lastSeen = item.LastSeen ? new Date(item.LastSeen) : null;
+            const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 10 * 60 * 1000;
+            
+            let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
+            let statusDisplay = 'Jamais connecté';
+            
+            if (lastSeen) {
+              if (isOnline) {
+                connectionStatus = 'online';
+                statusDisplay = '✅ En ligne';
+              } else {
+                connectionStatus = 'offline';
+                statusDisplay = '⚠️ Hors ligne';
+              }
+            }
 
-const adaptedRouters = monitoringRouters
-  .map((item) => ({
-    id: item.id,
-    name: item.name,
-    config_token: item.config_token || '',
-    is_active: item.is_active ?? true,
-    last_seen: item.last_seen,
-    created_at: item.created_at,
-    connection_status: item.connection_status,
-    status_display: item.status_display ||
-      (item.connection_status === 'online' ? '✅ En ligne' :
-       item.connection_status === 'offline' ? '⚠️ Hors ligne' : 'Jamais connecté')
-  }))
-  .filter(router => router.id);
+            return {
+              id: item.ID || item.id,
+              name: item.Name || item.name,
+              config_token: item.ConfigToken || item.config_token || '',
+              is_active: item.IsActive ?? item.is_active ?? true,
+              last_seen: item.LastSeen || item.last_seen,
+              created_at: item.CreatedAt || item.created_at,
+              connection_status: connectionStatus,
+              status_display: statusDisplay
+            };
+          })
+          .filter(router => router.id);
 
-setRouters(adaptedRouters);
-        console.log('✅ Routeurs adaptés avec statut:', adaptedRouters);
+        setRouters(adaptedRouters);
 
-        // 2. Récupérer tous les profils
-        try {
-          const profilesData = await getProfiles();
-          console.log('📦 Profils reçus (brut):', profilesData);
-          
-          const adaptedProfiles = profilesData.map((item: any) => ({
-            id: item.id,
-            router_id: item.router_id || item.RouterID,
-            profile_name: item.profile_name || item.ProfileName || 'Sans nom',
-            duration_minutes: item.duration_minutes || item.DurationMinutes || 0,
-            price: item.price || item.Price || 0,
-            currency: item.currency || item.Currency || 'XOF',
-            bandwidth_limit: item.bandwidth_limit || item.BandwidthLimit,
-            is_active: item.is_active || item.IsActive || false,
-            created_at: item.created_at || item.CreatedAt,
-            updated_at: item.updated_at || item.UpdatedAt
-          })).filter(profile => profile.id);
-          
-          setProfiles(adaptedProfiles);
-          console.log('✅ Profils adaptés:', adaptedProfiles);
-        } catch (error) {
-          console.error('❌ Erreur chargement profils:', error);
+        // ✅ 2. Ne charger les profils que si l'utilisateur est admin
+        // Un utilisateur normal ne peut pas lister tous les profils.
+        if (isAdmin()) {
+          try {
+            const profilesData = await getProfiles();
+            const adaptedProfiles = profilesData.map((item: any) => ({
+              id: item.id || item.ID,
+              router_id: item.router_id || item.RouterID,
+              profile_name: item.profile_name || item.ProfileName || 'Sans nom',
+              duration_minutes: item.duration_minutes || item.DurationMinutes || 0,
+              price: item.price || item.Price || 0,
+              currency: item.currency || item.Currency || 'XOF',
+              bandwidth_limit: item.bandwidth_limit || item.BandwidthLimit,
+              is_active: item.is_active ?? item.IsActive ?? false,
+              created_at: item.created_at || item.CreatedAt,
+              updated_at: item.updated_at || item.UpdatedAt
+            })).filter(profile => profile.id);
+            
+            setProfiles(adaptedProfiles);
+          } catch (error) {
+            console.error('❌ Erreur chargement profils admin:', error);
+          }
         }
         
-        // 3. Récupérer wallet et sessions
+        // 3. Récupérer wallet et sessions (inchangé)
         const [walletData, sessionsData] = await Promise.all([
-          getWallet().catch(() => {
-            console.log('⚠️ Wallet non disponible');
-            return null;
-          }),
-          getMySessions().catch(() => {
-            console.log('⚠️ Sessions non disponibles');
-            return [];
-          }),
+          getWallet().catch(() => null),
+          getMySessions().catch(() => []),
         ]);
         
-        // Adapter le wallet
         if (walletData) {
-          console.log('📦 Wallet reçu (brut):', walletData);
           const rawWallet = walletData as any;
-          const adaptedWallet = {
-            id: rawWallet.ID,
-            user_id: rawWallet.UserID,
-            balance: rawWallet.Balance,
-            currency: rawWallet.Currency,
-            created_at: rawWallet.CreatedAt,
-            updated_at: rawWallet.UpdatedAt
-          };
-          console.log('✅ Wallet adapté:', adaptedWallet);
-          setWallet(adaptedWallet);
+          setWallet({
+            id: rawWallet.ID || rawWallet.id,
+            user_id: rawWallet.UserID || rawWallet.user_id,
+            balance: rawWallet.Balance ?? rawWallet.balance,
+            currency: rawWallet.Currency || rawWallet.currency,
+            created_at: rawWallet.CreatedAt || rawWallet.created_at,
+            updated_at: rawWallet.UpdatedAt || rawWallet.updated_at
+          });
         }
         
-        // Adapter les sessions (filtrer les expirées)
         if (sessionsData && sessionsData.length > 0) {
-          console.log('📦 Sessions reçues (brut):', sessionsData);
-          const now = new Date();
-          
-          const adaptedSessions = sessionsData
+          const adaptedSessions = (sessionsData as any[])
             .map((item: any) => ({
               id: item.id || item.ID,
               zone_code: item.zone_code || item.ZoneCode,
@@ -115,14 +116,11 @@ setRouters(adaptedRouters);
               expires_at: item.expires_at || item.ExpiresAt
             }))
             .filter(session => {
-              // Filtrer les sessions expirées
               if (session.state !== 'ACTIVE') return false;
-              const expiresAt = new Date(session.expires_at);
-              return expiresAt > now;
+              return new Date(session.expires_at) > new Date();
             });
           
           setSessions(adaptedSessions);
-          console.log('✅ Sessions adaptées et filtrées:', adaptedSessions);
         }
         
       } catch (error) {
