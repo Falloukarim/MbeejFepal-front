@@ -1,7 +1,9 @@
+// app/subscription/success/page.tsx
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { useSubscription } from '../../context/SubscriptionContext';
+import { safeLocalStorage } from '@/lib/storage';
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight, LayoutDashboard, Smartphone } from 'lucide-react';
 import Link from 'next/link';
 
@@ -12,8 +14,8 @@ export default function SubscriptionSuccessPage() {
   const hasFinishedRef = useRef(false);
 
   useEffect(() => {
-    // ✅ Vérification directe du token sans import externe
-    const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('token');
+    // ✅ Utilisation de safeLocalStorage : si le WebView bloque, on obtient null sans crash
+    const hasToken = !!safeLocalStorage.getItem('token');
     
     if (!hasToken) {
       console.log('[SUCCESS] Pas de token — WebView mobile probable');
@@ -32,18 +34,15 @@ export default function SubscriptionSuccessPage() {
 
       attemptsCount++;
       setAttempts(attemptsCount);
-      console.log(`[SUCCESS] Tentative ${attemptsCount}/30`);
 
       try {
         const data = await refreshStatus();
-        console.log('[SUCCESS] Statut:', data);
 
         if (hasFinishedRef.current) return;
 
         if (data?.active) {
           hasFinishedRef.current = true;
           setPhase('success');
-          console.log('[SUCCESS] Active = true ! Bouton prêt.');
           if (intervalId) clearInterval(intervalId);
           return;
         }
@@ -158,6 +157,7 @@ export default function SubscriptionSuccessPage() {
           </>
         )}
 
+        {/* ✅ C'est cet écran que verront les utilisateurs sur Wave/Orange Money */}
         {phase === 'no-auth' && (
           <>
             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">

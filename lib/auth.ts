@@ -1,3 +1,5 @@
+// lib/auth.ts
+import { safeLocalStorage } from './storage';
 
 export interface UserFromToken {
   id: string;
@@ -5,39 +7,33 @@ export interface UserFromToken {
   role: 'ADMIN' | 'USER';
 }
 
-// Vérifie si l'utilisateur est authentifié
 export const isAuthenticated = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem('token');
+  return !!safeLocalStorage.getItem('token');
 };
 
-// Récupère le token JWT
 export const getToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
+  return safeLocalStorage.getItem('token');
 };
 
-// Déconnexion
 export const logout = (): void => {
-  localStorage.removeItem('token');
-  // Optionnel : rediriger vers la page de login
+  safeLocalStorage.removeItem('token');
   if (typeof window !== 'undefined') {
     window.location.href = '/login';
   }
 };
 
-// Extrait les informations de l'utilisateur depuis le token JWT
 export const getUserFromToken = (): UserFromToken | null => {
   const token = getToken();
   if (!token) return null;
   
   try {
-    // Le token JWT est composé de 3 parties séparées par des points
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     
-    // Décoder la partie payload (deuxième partie)
-    const payload = JSON.parse(atob(parts[1]));
+    // Décodage Base64Url standard
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64));
     
     return {
       id: payload.sub || payload.id || '',
@@ -50,13 +46,11 @@ export const getUserFromToken = (): UserFromToken | null => {
   }
 };
 
-// Vérifie si l'utilisateur est admin
 export const isAdmin = (): boolean => {
   const user = getUserFromToken();
   return user?.role === 'ADMIN';
 };
 
-// Middleware de protection des routes (à utiliser dans les pages)
 export const requireAuth = (router: any) => {
   if (!isAuthenticated()) {
     router.push('/login');
@@ -65,7 +59,6 @@ export const requireAuth = (router: any) => {
   return true;
 };
 
-// Middleware pour les routes admin
 export const requireAdmin = (router: any) => {
   if (!isAuthenticated()) {
     router.push('/login');
