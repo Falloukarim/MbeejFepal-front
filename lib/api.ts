@@ -35,6 +35,7 @@ export interface HotspotProfile {
   price: number;
   currency: string;
   bandwidth_limit: string | null;
+  max_devices: number; // ✅ NOUVEAU
   is_active: boolean;
   created_at: string;
   updated_at: string;

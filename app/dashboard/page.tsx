@@ -64,20 +64,23 @@ export default function DashboardPage() {
         if (isAdmin()) {
           try {
             const profilesData = await getProfiles();
-            const adaptedProfiles = profilesData.map((item: any) => ({
-              id: item.id || item.ID,
-              router_id: item.router_id || item.RouterID,
-              profile_name: item.profile_name || item.ProfileName || 'Sans nom',
-              duration_minutes: item.duration_minutes || item.DurationMinutes || 0,
-              price: item.price || item.Price || 0,
-              currency: item.currency || item.Currency || 'XOF',
-              bandwidth_limit: item.bandwidth_limit || item.BandwidthLimit,
-              is_active: item.is_active ?? item.IsActive ?? false,
-              created_at: item.created_at || item.CreatedAt,
-              updated_at: item.updated_at || item.UpdatedAt
-            })).filter(profile => profile.id);
-            
-            setProfiles(adaptedProfiles);
+const adaptedProfiles: HotspotProfile[] = (profilesData as any[])
+  .map((item: any): HotspotProfile => ({
+    id: item.id ?? item.ID,
+    router_id: item.router_id ?? item.RouterID,
+    profile_name: item.profile_name ?? item.ProfileName ?? 'Sans nom',
+    duration_minutes: item.duration_minutes ?? item.DurationMinutes ?? 0,
+    price: item.price ?? item.Price ?? 0,
+    currency: item.currency ?? item.Currency ?? 'XOF',
+    bandwidth_limit: item.bandwidth_limit ?? item.BandwidthLimit,
+    max_devices: item.max_devices ?? item.MaxDevices ?? 1, // ← ajouté
+    is_active: item.is_active ?? item.IsActive ?? false,
+    created_at: item.created_at ?? item.CreatedAt,
+    updated_at: item.updated_at ?? item.UpdatedAt,
+  }))
+  .filter((profile) => profile.id);
+
+setProfiles(adaptedProfiles);
           } catch (error) {
             console.error('❌ Erreur chargement profils admin:', error);
           }

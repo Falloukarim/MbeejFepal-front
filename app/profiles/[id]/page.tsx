@@ -16,6 +16,7 @@ type ProfileForm = {
   price: number;
   currency: 'XOF' | 'EUR' | 'USD';
   bandwidth_limit?: string | null;
+  max_devices: number; // ✅ NOUVEAU
   is_active: boolean;
 };
 
@@ -43,6 +44,7 @@ export default function ProfileDetailPage() {
       price: 500,
       currency: 'XOF',
       bandwidth_limit: '',
+      max_devices: 1, // ✅ NOUVEAU
       is_active: true,
     },
   });
@@ -83,6 +85,7 @@ export default function ProfileDetailPage() {
           price: profileData.price,
           currency: profileData.currency as 'XOF' | 'EUR' | 'USD',
           bandwidth_limit: profileData.bandwidth_limit || '',
+          max_devices: profileData.max_devices || 1, // ✅ NOUVEAU
           is_active: profileData.is_active,
         });
       } catch (error) {
@@ -115,6 +118,10 @@ export default function ProfileDetailPage() {
     if (!data.price || data.price < 1) {
       newErrors.price = 'Le prix doit être positif';
     }
+
+    if (!data.max_devices || data.max_devices < 1) {
+      newErrors.max_devices = 'Le nombre d\'appareils doit être au moins 1'; // ✅ NOUVEAU
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -137,6 +144,7 @@ export default function ProfileDetailPage() {
         price: formData.price,
         currency: formData.currency,
         bandwidth_limit: formData.bandwidth_limit || null,
+        max_devices: formData.max_devices, // ✅ NOUVEAU
         is_active: formData.is_active,
       };
       
@@ -206,7 +214,6 @@ export default function ProfileDetailPage() {
               >
                 <option value="">Sélectionnez un routeur</option>
                 {routers.map((router) => {
-                  // Générer une clé unique
                   const key = router?.id ? `router-${router.id}` : `router-${Math.random()}`;
                   
                   return (
@@ -269,6 +276,30 @@ export default function ProfileDetailPage() {
                   <p className="mt-1 text-sm text-red-600">{errors.price}</p>
                 )}
               </div>
+            </div>
+
+            {/* ✅ NOUVEAU : Nombre d'appareils */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre d'appareils inclus
+              </label>
+              <select
+                {...register('max_devices', { valueAsNumber: true })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition bg-white"
+              >
+                <option value={1}>1 appareil (Standard)</option>
+                <option value={2}>2 appareils (Couple)</option>
+                <option value={5}>5 appareils (Famille)</option>
+                <option value={10}>10 appareils (Maison / Petit bureau)</option>
+                <option value={20}>20 appareils (Grande famille)</option>
+                <option value={50}>50 appareils (Entreprise)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Le client pourra connecter ce nombre d'appareils avec un seul paiement.
+              </p>
+              {errors.max_devices && (
+                <p className="mt-1 text-sm text-red-600">{errors.max_devices}</p>
+              )}
             </div>
 
             {/* Devise */}

@@ -34,21 +34,21 @@ export default function RouterProfilesPage() {
       console.log('✅ Profils reçus (bruts):', profilesData);
       
       // Transformer les profils si nécessaire (backend avec majuscules)
-      const transformedProfiles = Array.isArray(profilesData) 
-        ? profilesData.map((item: any) => ({
-            id: item.ID || item.id,
-            router_id: item.RouterID || item.router_id,
-            profile_name: item.ProfileName || item.profile_name,
-            duration_minutes: item.DurationMinutes || item.duration_minutes,
-            price: item.Price || item.price,
-            currency: item.Currency || item.currency || 'XOF',
-            bandwidth_limit: item.BandwidthLimit || item.bandwidth_limit,
-            is_active: item.IsActive !== undefined ? item.IsActive : (item.is_active || false),
-            created_at: item.CreatedAt || item.created_at,
-            updated_at: item.UpdatedAt || item.updated_at
-          }))
-        : [];
-      
+      const transformedProfiles: HotspotProfile[] = Array.isArray(profilesData)
+  ? profilesData.map((item: any): HotspotProfile => ({
+      id: item.ID ?? item.id,
+      router_id: item.RouterID ?? item.router_id,
+      profile_name: item.ProfileName ?? item.profile_name,
+      duration_minutes: item.DurationMinutes ?? item.duration_minutes,
+      price: item.Price ?? item.price,
+      currency: item.Currency ?? item.currency ?? 'XOF',
+      bandwidth_limit: item.BandwidthLimit ?? item.bandwidth_limit,
+      max_devices: item.MaxDevices ?? item.max_devices ?? 1, // ← ajouté
+      is_active: item.IsActive ?? item.is_active ?? false,
+      created_at: item.CreatedAt ?? item.created_at,
+      updated_at: item.UpdatedAt ?? item.updated_at,
+    }))
+  : [];
       console.log('✅ Profils transformés:', transformedProfiles);
       
       setCurrentRouter(routerData);
