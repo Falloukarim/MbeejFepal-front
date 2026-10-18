@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getMe, type User } from '@/lib/api';
+import { useSubscription } from '@/app/context/SubscriptionContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { AlertTriangle } from 'lucide-react'; // ✅ Ajout de l'icône
+import Link from 'next/link'; // ✅ Ajout de Link
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +19,17 @@ export default function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // ✅ Récupération du statut d'abonnement
+  const { status } = useSubscription();
+  
+  // ✅ Vérification si l'abonnement est en attente de paiement
+  const isPastDue = status?.subscription?.status === 'past_due';
+  const expirationDate = status?.subscription?.expires_at 
+    ? new Date(status.subscription.expires_at).toLocaleDateString('fr-FR', {
+        day: '2-digit', month: '2-digit', year: 'numeric'
+      })
+    : '';
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -81,7 +95,26 @@ export default function Layout({ children }: LayoutProps) {
       />
 
       {/* Main content */}
-      <div className="lg:ml-72 transition-margin duration-300 relative z-20">
+      <div className="lg:ml-72 transition-margin duration-300 relative z-20 flex flex-col min-h-screen">
+        
+        {/* 🚨 BANDEAU D'ALERTE ABONNEMENT 🚨 */}
+        {isPastDue && (
+          <div className="bg-amber-500 text-white px-4 py-3 text-sm font-medium flex flex-col sm:flex-row items-center justify-center gap-2 shadow-md">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+              <span>
+                Votre facture est en attente. Accès maintenu jusqu'au <strong>{expirationDate}</strong>.
+              </span>
+            </div>
+            <Link 
+              href="/subscription" 
+              className="mt-2 sm:mt-0 sm:ml-4 bg-white text-amber-600 px-4 py-1.5 rounded-lg font-bold hover:bg-amber-50 transition-colors whitespace-nowrap"
+            >
+              Payer maintenant
+            </Link>
+          </div>
+        )}
+
         {/* Header */}
         <Header 
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -89,7 +122,7 @@ export default function Layout({ children }: LayoutProps) {
         />
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 animate-[fadeIn_0.5s_ease-out]">
+        <main className="p-4 sm:p-6 animate-[fadeIn_0.5s_ease-out] flex-1">
           {children}
         </main>
 
