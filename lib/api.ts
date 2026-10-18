@@ -14,6 +14,9 @@ export interface User {
   role: 'ADMIN' | 'USER';
   is_active: boolean;
   created_at: string;
+  payout_phone?: string;
+  payout_method?: string;
+
 }
 
 export interface Router {
@@ -314,5 +317,22 @@ export const chooseSubscription = async (planId: number) => {
 export const upgradeToLevel2 = async () => {
   await api.post('/api/subscription/upgrade');
 };
+// ==========================================
+// Payout (Retrait)
+// ==========================================
 
+export interface PayoutInfo {
+  payout_phone: string;
+  payout_method: string;
+}
+
+export const updatePayoutInfo = async (data: PayoutInfo) => {
+  const response = await api.put('/api/user/payout-info', data);
+  return response.data;
+};
+
+export const requestWithdrawal = async () => {
+  const response = await api.post('/api/wallet/withdraw');
+  return response.data;
+};
 export default api;
