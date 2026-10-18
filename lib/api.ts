@@ -335,4 +335,9 @@ export const requestWithdrawal = async () => {
   const response = await api.post('/api/wallet/withdraw');
   return response.data;
 };
+
+export const updateRouter = async (id: number, data: { name: string, daily_quota_gb: number }) => {
+  const response = await api.put(`/routers/${id}`, data);
+  return response.data;
+};
 export default api;
