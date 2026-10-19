@@ -26,6 +26,19 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
         </svg>
       )
     },
+    // ✅ NOUVEAU : Lien Statistiques
+    { 
+      name: 'Statistiques', 
+      href: '/statistics', 
+      icon: (isActive: boolean) => (
+        <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 3v18h18" strokeLinecap="round"/>
+          <path d="M18 17V9" strokeLinecap="round"/>
+          <path d="M12 17V5" strokeLinecap="round"/>
+          <path d="M6 17v-3" strokeLinecap="round"/>
+        </svg>
+      )
+    },
     { 
       name: 'Routeurs', 
       href: '/routers', 
@@ -50,7 +63,6 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
         </svg>
       )
     },
-    // ✅ DÉPLACÉ ICI : Tout le monde doit pouvoir voir son abonnement
     { 
       name: 'Abonnement', 
       href: '/subscription', 

@@ -364,4 +364,18 @@ export const getOwnerStats = async () => {
   const response = await api.get<DashboardStatsResponse>('/api/stats/dashboard');
   return response.data;
 };
+export const getStatsChart = async () => {
+  const response = await api.get('/api/stats/chart');
+  return response.data;
+};
+
+export const getRouterStats = async () => {
+  const response = await api.get('/api/stats/routers');
+  return response.data;
+};
+
+export const getProfileStats = async () => {
+  const response = await api.get('/api/stats/profiles');
+  return response.data;
+};
 export default api;
