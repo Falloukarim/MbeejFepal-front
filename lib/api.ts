@@ -340,4 +340,28 @@ export const updateRouter = async (id: number, data: { name: string, daily_quota
   const response = await api.put(`/routers/${id}`, data);
   return response.data;
 };
+// ==========================================
+// STATISTIQUES PROPRIÉTAIRE
+// ==========================================
+export interface OwnerStats {
+  revenue_today: number;
+  revenue_month: number;
+  active_sessions: number;
+  unique_clients_today: number;
+}
+
+export interface TopProfile {
+  profile_name: string;
+  sales_count: number;
+}
+
+export interface DashboardStatsResponse {
+  stats: OwnerStats;
+  top_profiles: TopProfile[];
+}
+
+export const getOwnerStats = async () => {
+  const response = await api.get<DashboardStatsResponse>('/api/stats/dashboard');
+  return response.data;
+};
 export default api;

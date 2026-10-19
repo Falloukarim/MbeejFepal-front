@@ -49,9 +49,18 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
           <circle cx="12" cy="15" r="1" fill="currentColor" />
         </svg>
       )
-      
     },
-        { 
+    // ✅ DÉPLACÉ ICI : Tout le monde doit pouvoir voir son abonnement
+    { 
+      name: 'Abonnement', 
+      href: '/subscription', 
+      icon: (isActive: boolean) => (
+        <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+      )
+    },
+    { 
       name: 'Paramètres', 
       href: '/settings', 
       icon: (isActive: boolean) => (
@@ -71,60 +80,52 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
         </svg>
       )
     },
-... (user?.role === 'ADMIN' ? [
-  { 
-    name: 'Utilisateurs', 
-    href: '/admin/users', 
-    icon: (isActive: boolean) => (
-      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    )
-  },
-  { 
-    name: 'Wallets', 
-    href: '/admin/wallets', 
-    icon: (isActive: boolean) => (
-      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M21 12v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
-        <circle cx="16" cy="12" r="2" />
-      </svg>
-    )
-  },
-    { 
-      name: 'Abonnement', 
-      href: '/subscription', 
-      icon: (isActive: boolean) => (
-        <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      )
-    },
-  { 
-    name: 'Paiements', 
-    href: '/admin/payments', 
-    icon: (isActive: boolean) => (
-      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
-        <line x1="2" y1="10" x2="22" y2="10" />
-        <circle cx="18" cy="15" r="1" fill="currentColor" />
-      </svg>
-    )
-  },
-  { 
-    name: 'Monitoring', 
-    href: '/monitoring', 
-    icon: (isActive: boolean) => (
-      <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M20 20L15 15M4 4L9 9M12 4L12 20M4 12L20 12M9 9L4 4M15 15L20 20" strokeLinecap="round" />
-        <circle cx="12" cy="12" r="2" />
-        <circle cx="5" cy="5" r="2" />
-        <circle cx="19" cy="19" r="2" />
-      </svg>
-    )
-  },
-] : []),
+    // ✅ ROUTES ADMIN UNIQUEMENT
+    ...(user?.role === 'ADMIN' ? [
+      { 
+        name: 'Utilisateurs', 
+        href: '/admin/users', 
+        icon: (isActive: boolean) => (
+          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        )
+      },
+      { 
+        name: 'Wallets', 
+        href: '/admin/wallets', 
+        icon: (isActive: boolean) => (
+          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 12v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2" />
+            <circle cx="16" cy="12" r="2" />
+          </svg>
+        )
+      },
+      { 
+        name: 'Paiements', 
+        href: '/admin/payments', 
+        icon: (isActive: boolean) => (
+          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="2" y="5" width="20" height="14" rx="2" ry="2" />
+            <line x1="2" y1="10" x2="22" y2="10" />
+            <circle cx="18" cy="15" r="1" fill="currentColor" />
+          </svg>
+        )
+      },
+      { 
+        name: 'Monitoring', 
+        href: '/monitoring', 
+        icon: (isActive: boolean) => (
+          <svg className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-[#d97706] group-hover:text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 20L15 15M4 4L9 9M12 4L12 20M4 12L20 12M9 9L4 4M15 15L20 20" strokeLinecap="round" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="5" cy="5" r="2" />
+            <circle cx="19" cy="19" r="2" />
+          </svg>
+        )
+      },
+    ] : []),
   ];
 
   return (
@@ -227,7 +228,6 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
           {/* Section utilisateur */}
           <div className="relative border-t border-[rgba(217,119,6,0.2)] p-6">
             <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>
-            
           </div>
         </div>
       </div>
