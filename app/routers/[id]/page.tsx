@@ -7,11 +7,14 @@ import { getRouter, getProfiles, updateRouter, type Router, type HotspotProfile 
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
-import { Save, ShieldAlert, Copy, Check } from 'lucide-react';
+import { Save, ShieldAlert, Copy, Check, Upload, X } from 'lucide-react';
 
 type RouterForm = {
   name: string;
   daily_quota_gb: number;
+  portal_name: string;
+  primary_color: string;
+  logo_url: string;
 };
 
 export default function RouterDetailPage() {
@@ -21,21 +24,22 @@ export default function RouterDetailPage() {
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string>('');
 
   const routerId = params.id ? parseInt(params.id as string) : null;
 
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<RouterForm>();
+  const { register, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm<RouterForm>();
 
   useEffect(() => {
     if (!routerId) return;
-    
+
     const fetchData = async () => {
       try {
         const [routerRes, profilesRes] = await Promise.all([
           getRouter(routerId),
           getProfiles(routerId),
         ]);
-        
+
         const adaptedRouter: Router = {
           id: (routerRes as any).ID || (routerRes as any).id,
           name: (routerRes as any).Name || (routerRes as any).name || '',
@@ -44,21 +48,44 @@ export default function RouterDetailPage() {
           last_seen: (routerRes as any).LastSeen || (routerRes as any).last_seen || null,
           created_at: (routerRes as any).CreatedAt || (routerRes as any).created_at || '',
         };
-        
+
         if (!adaptedRouter.id) {
           toast.error('Routeur non trouvé');
           router.push('/routers');
           return;
         }
-        
+
         setRouterData(adaptedRouter);
         setProfiles(Array.isArray(profilesRes) ? profilesRes : []);
 
+        // ✅ Récupération des champs de personnalisation (snake_case ou PascalCase)
+        const portalName =
+          (routerRes as any).portal_name ||
+          (routerRes as any).PortalName ||
+          'MbeejFepal';
+        const primaryColor =
+          (routerRes as any).primary_color ||
+          (routerRes as any).PrimaryColor ||
+          '#d97706';
+        const logoURL =
+          (routerRes as any).logo_url ||
+          (routerRes as any).LogoURL ||
+          '';
+        const dailyQuota =
+          (routerRes as any).daily_quota_gb ??
+          (routerRes as any).DailyQuotaGB ??
+          0;
+
         reset({
           name: adaptedRouter.name,
-          daily_quota_gb: (routerRes as any).DailyQuotaGB || (routerRes as any).daily_quota_gb || 0,
+          daily_quota_gb: dailyQuota,
+          portal_name: portalName,
+          primary_color: primaryColor,
+          logo_url: logoURL,
         });
-        
+
+        setLogoPreview(logoURL);
+
       } catch (error) {
         toast.error('Erreur lors du chargement des données');
         router.push('/routers');
@@ -66,9 +93,33 @@ export default function RouterDetailPage() {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, [routerId, router, reset]);
+
+  // ✅ Upload du logo en Base64 (max 200 Ko)
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image (JPG, PNG, SVG...)');
+      return;
+    }
+
+    if (file.size > 200 * 1024) {
+      toast.error('Image trop volumineuse (max 200 Ko). Compressez-la avant.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      setLogoPreview(base64);
+      setValue('logo_url', base64);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const onSubmit = async (data: RouterForm) => {
     if (!routerId) return;
@@ -85,7 +136,7 @@ export default function RouterDetailPage() {
     if (routerData?.config_token) {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
       const command = `/tool fetch url="${apiUrl}/routers/configure/${routerData.config_token}" mode=https dst-path=monwifi\n/import monwifi`;
-      
+
       navigator.clipboard.writeText(command)
         .then(() => {
           setCopied(true);
@@ -138,11 +189,11 @@ export default function RouterDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* Carte principale : Formulaire d'édition (Style Wallet) */}
+
+        {/* Carte principale : Formulaire d'édition */}
         <div className="lg:col-span-2 relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-8 border border-white/10">
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-          
+
           <div className="relative z-10">
             <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
               <svg className="w-6 h-6 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -153,6 +204,7 @@ export default function RouterDetailPage() {
             </h2>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Nom du routeur */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Nom du routeur</label>
                 <input
@@ -162,6 +214,7 @@ export default function RouterDetailPage() {
                 />
               </div>
 
+              {/* Quota journalier */}
               <div className="pt-6 border-t border-white/10">
                 <div className="flex items-center gap-2 mb-2">
                   <ShieldAlert className="w-5 h-5 text-amber-500" />
@@ -184,6 +237,76 @@ export default function RouterDetailPage() {
                 </p>
               </div>
 
+              {/* ✅ SECTION PERSONNALISATION */}
+              <div className="pt-6 border-t border-white/10">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <span className="text-xl">🎨</span> Personnalisation du portail
+                </h3>
+
+                <div className="space-y-4">
+                  {/* Nom du Wi-Fi / portail */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Nom de votre Wi-Fi</label>
+                    <input
+                      {...register('portal_name')}
+                      type="text"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition"
+                      placeholder="Ex: Cybercafé Chez Ali"
+                    />
+                  </div>
+
+                  {/* Couleur principale */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Couleur principale</label>
+                    <div className="flex items-center gap-4">
+                      <input
+                        {...register('primary_color')}
+                        type="color"
+                        className="w-16 h-12 bg-white/5 border border-white/10 rounded-lg cursor-pointer p-1"
+                      />
+                      <span className="text-sm text-gray-400">Couleur des boutons et de l'en-tête</span>
+                    </div>
+                  </div>
+
+                  {/* Logo */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Logo du portail</label>
+                    <div className="flex items-center gap-4">
+                      {logoPreview ? (
+                        <div className="w-20 h-20 bg-white/5 rounded-xl flex items-center justify-center overflow-hidden border border-white/10 flex-shrink-0">
+                          <img src={logoPreview} alt="Logo" className="max-w-full max-h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 flex-shrink-0">
+                          <Upload className="w-8 h-8 text-gray-500" />
+                        </div>
+                      )}
+
+                      <label className="flex-1 cursor-pointer">
+                        <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-dashed border-white/20 rounded-xl hover:bg-white/10 hover:border-amber-500/50 transition-all text-sm text-gray-300">
+                          <Upload className="w-4 h-4" />
+                          {logoPreview ? 'Changer le logo' : 'Choisir une image'}
+                        </div>
+                      </label>
+
+                      {logoPreview && (
+                        <button
+                          type="button"
+                          onClick={() => { setLogoPreview(''); setValue('logo_url', ''); }}
+                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                          title="Supprimer le logo"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                    <input type="hidden" {...register('logo_url')} />
+                    <p className="text-xs text-gray-500 mt-2">JPG, PNG ou SVG. Max 200 Ko.</p>
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -196,7 +319,7 @@ export default function RouterDetailPage() {
 
             {/* Infos de configuration */}
             <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
-               <div className="flex justify-between items-center py-2 border-b border-white/10">
+              <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-gray-400 text-sm">Statut</span>
                 <span className={`px-3 py-1 inline-flex text-xs font-semibold rounded-full border ${routerData.is_active ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
                   {routerData.is_active ? 'Actif' : 'Inactif'}
@@ -207,10 +330,6 @@ export default function RouterDetailPage() {
                 <span className="text-gray-200 text-sm">{routerData.last_seen ? formatDate(routerData.last_seen) : 'Jamais'}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-400 text-sm">Token de configuration</span>
-                <span className="text-amber-500 font-mono text-xs bg-white/5 px-3 py-1 rounded-lg border border-white/5">
-                  {routerData.config_token ? routerData.config_token.substring(0, 8) + '...' : 'Non disponible'}
-                </span>
               </div>
             </div>
 
@@ -218,27 +337,27 @@ export default function RouterDetailPage() {
               onClick={copyCommand}
               disabled={!routerData.config_token || copied}
               className={`mt-6 w-full py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                  routerData.config_token
-                    ? copied ? 'bg-green-500 text-white scale-105' : 'bg-white/10 text-white hover:bg-white/20'
-                    : 'bg-white/5 text-gray-500 cursor-not-allowed'
-                }`}
+                routerData.config_token
+                  ? copied ? 'bg-green-500 text-white scale-105' : 'bg-white/10 text-white hover:bg-white/20'
+                  : 'bg-white/5 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              {copied ? <><Check className="w-5 h-5"/> Copié !</> : <><Copy className="w-5 h-5"/> Copier la commande d'installation</>}
+              {copied ? <><Check className="w-5 h-5" /> Copié !</> : <><Copy className="w-5 h-5" /> Copier la commande d'installation</>}
             </button>
           </div>
         </div>
 
-        {/* Carte secondaire : Stats (Style Wallet) */}
+        {/* Carte secondaire : Stats */}
         <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-6 border border-white/10">
           <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-          
+
           <div className="relative z-10">
             <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
               <svg className="w-6 h-6 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 3v18h18" strokeLinecap="round"/>
-                <path d="M18 17V9" strokeLinecap="round"/>
-                <path d="M12 17V5" strokeLinecap="round"/>
-                <path d="M6 17v-3" strokeLinecap="round"/>
+                <path d="M3 3v18h18" strokeLinecap="round" />
+                <path d="M18 17V9" strokeLinecap="round" />
+                <path d="M12 17V5" strokeLinecap="round" />
+                <path d="M6 17v-3" strokeLinecap="round" />
               </svg>
               Statistiques
             </h2>
@@ -262,16 +381,16 @@ export default function RouterDetailPage() {
         </div>
       </div>
 
-      {/* Liste des forfaits (Style Wallet) */}
+      {/* Liste des forfaits */}
       <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl border border-white/10">
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-        
+
         <div className="relative z-10 px-6 py-4 border-b border-white/10 bg-white/5">
           <h2 className="text-xl font-semibold text-white">
             Forfaits du routeur
           </h2>
         </div>
-        
+
         {profiles.length > 0 ? (
           <div className="relative z-10 divide-y divide-white/10">
             {profiles.map((profile) => (

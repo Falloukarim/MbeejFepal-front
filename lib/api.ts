@@ -28,6 +28,9 @@ export interface Router {
   created_at: string;
   connection_status?: 'online' | 'offline' | 'never_connected';
   status_display?: string;
+  portal_name?: string;   // ✅ NOUVEAU
+  primary_color?: string; // ✅ NOUVEAU
+  logo_url?: string;      // ✅ NOUVEAU
 }
 
 export interface HotspotProfile {
