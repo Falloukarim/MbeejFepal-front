@@ -143,37 +143,38 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Intercepteur réponse : on utilise safeLocalStorage
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     if (error.response?.status === 401) {
+      // 401 = non authentifié → on déconnecte
       safeLocalStorage.removeItem('token');
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         toast.error('Session expirée, veuillez vous reconnecter');
         window.location.href = '/login';
       }
     } else if (error.response?.status === 402) {
+      // 402 = abonnement requis
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/subscription')) {
         toast.error('Un abonnement actif est requis.');
         window.location.href = '/subscription';
       }
-    } else if (error.code === 'ERR_NETWORK') {
-      toast.error('Impossible de joindre le serveur. Vérifiez votre connexion.');
     } else if (error.response?.status === 403) {
+      // ✅ 403 = interdit (mais authentifié) → on affiche un toast sans rediriger
       const data = error.response.data as any;
       if (data?.error === 'plan_limit_reached') {
-         toast.error(data.message || 'Limite de routeurs atteinte.');
+        toast.error(data.message || 'Limite de routeurs atteinte.');
       } else {
-         toast.error('Accès non autorisé');
+        toast.error('Accès non autorisé');
       }
+    } else if (error.code === 'ERR_NETWORK') {
+      toast.error('Impossible de joindre le serveur.');
     } else if (error.response?.status === 500) {
       toast.error('Erreur serveur. Veuillez réessayer plus tard.');
     }
     return Promise.reject(error);
   }
 );
-
 // ==========================================
 // AUTHENTIFICATION
 // ==========================================

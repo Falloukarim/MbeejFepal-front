@@ -255,14 +255,24 @@ export default function ProfileDetailPage() {
               </select>
             </div>
 
+            {/* ✅ LIMITE DE DÉBIT EN MENU DÉROULANT */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Limite de débit (optionnel)</label>
-              <input
+              <label className="block text-sm font-medium text-gray-300 mb-2">Limite de débit (Vitesse)</label>
+              <select
                 {...register('bandwidth_limit')}
-                type="text"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition"
-                placeholder="Ex: 10Mbps"
-              />
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition [&>option]:bg-gray-900"
+              >
+                <option value="">Illimité (Partagé)</option>
+                <option value="512k">512 Kbps (Basique)</option>
+                <option value="1M">1 Mbps (Standard)</option>
+                <option value="2M">2 Mbps (Confortable)</option>
+                <option value="5M">5 Mbps (Rapide)</option>
+                <option value="10M">10 Mbps (Premium / Gaming)</option>
+                <option value="20M">20 Mbps (Ultra Fibre)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                La vitesse maximale allouée. Symétrique (ex: 2M = 2 Mbps en téléchargement et envoi).
+              </p>
             </div>
 
             <div className="flex items-center gap-3 pt-2">
