@@ -6,7 +6,7 @@ import { getSubscriptionPlans, chooseSubscription, upgradeToLevel2, Subscription
 import { useSubscription } from '../context/SubscriptionContext';
 import { Check, Shield, Zap, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import Layout from '@/components/layout/Layout'; // ✅ Import du Layout
+import Layout from '@/components/layout/Layout';
 
 export default function SubscriptionPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -14,6 +14,43 @@ export default function SubscriptionPage() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const router = useRouter();
   const { status, refreshStatus } = useSubscription();
+
+  // ✅ NOUVEAU : rend le bouton de déconnexion cliquable malgré le pointer-events-none du wrapper
+  useEffect(() => {
+    const enableLogoutButton = () => {
+      const els = document.querySelectorAll<HTMLElement>(
+        'button, a, [role="button"]'
+      );
+      els.forEach((el) => {
+        const text = (el.textContent || '').toLowerCase().trim();
+        const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+        const title = (el.getAttribute('title') || '').toLowerCase();
+
+        const isLogout =
+          text.includes('déconnexion') ||
+          text.includes('deconnexion') ||
+          text.includes('se déconnecter') ||
+          text.includes('logout') ||
+          text.includes('sign out') ||
+          ariaLabel.includes('éconnect') ||
+          ariaLabel.includes('ogout') ||
+          title.includes('éconnect') ||
+          title.includes('ogout') ||
+          el.hasAttribute('data-logout') ||
+          el.hasAttribute('data-logout-button');
+
+        if (isLogout) {
+          el.style.pointerEvents = 'auto';
+          el.style.cursor = 'pointer';
+        }
+      });
+    };
+
+    // Premier passage immédiat, puis un second après le montage complet du Layout
+    enableLogoutButton();
+    const timer = setTimeout(enableLogoutButton, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (status?.active && status.subscription?.plan.level === 'level2') {
@@ -81,16 +118,16 @@ export default function SubscriptionPage() {
   }
 
   return (
-    // ✅ Le wrapper global est non-cliquable (décor)
+    // ✅ Restauré : wrapper non-cliquable
     <div className="pointer-events-none">
       <Layout>
-        {/* ✅ La zone de contenu redevient cliquable */}
+        {/* ✅ Contenu cliquable (boutons de souscription) */}
         <div className="pointer-events-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
               <h1 className="text-4xl font-extrabold text-white mb-4">Choisissez votre abonnement</h1>
               <p className="text-xl text-gray-400">
-                {status?.active 
+                {status?.active
                   ? `Vous avez actuellement ${status.router_count} routeur(s).`
                   : "Sélectionnez l'offre qui correspond à la taille de votre réseau."}
               </p>
@@ -104,8 +141,12 @@ export default function SubscriptionPage() {
                 const isUpgrade = isLevel1User && plan.level === 'level2';
 
                 return (
-                  <div key={plan.id} className={`relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl p-8 border ${plan.level === 'level2' ? 'border-amber-500' : 'border-white/10'}`}>
-                    {/* Effet de halo */}
+                  <div
+                    key={plan.id}
+                    className={`relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl p-8 border ${
+                      plan.level === 'level2' ? 'border-amber-500' : 'border-white/10'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
                     {plan.level === 'level2' && (
@@ -119,13 +160,17 @@ export default function SubscriptionPage() {
                         Votre plan actuel
                       </div>
                     )}
-                    
+
                     <div className="relative z-10 pt-4">
                       <div className="flex items-center gap-3 mb-4">
-                        {plan.level === 'level1' ? <Shield className="w-8 h-8 text-gray-400" /> : <Zap className="w-8 h-8 text-amber-500" />}
+                        {plan.level === 'level1' ? (
+                          <Shield className="w-8 h-8 text-gray-400" />
+                        ) : (
+                          <Zap className="w-8 h-8 text-amber-500" />
+                        )}
                         <h2 className="text-2xl font-bold text-white">{plan.name}</h2>
                       </div>
-                      
+
                       <div className="mb-6">
                         <span className="text-5xl font-extrabold text-amber-500">
                           {actualPrice.toLocaleString()}
@@ -156,20 +201,20 @@ export default function SubscriptionPage() {
                         onClick={() => handleChoose(plan)}
                         disabled={processingId !== null || isCurrentPlan}
                         className={`w-full py-4 rounded-xl font-bold text-white transition-all shadow-lg ${
-                          isCurrentPlan 
+                          isCurrentPlan
                             ? 'bg-white/10 text-gray-500 cursor-not-allowed border border-white/5'
-                            : plan.level === 'level2' 
-                              ? 'bg-[#d97706] hover:bg-[#b45309]' 
-                              : 'bg-white/10 hover:bg-white/20 border border-white/10'
+                            : plan.level === 'level2'
+                            ? 'bg-[#d97706] hover:bg-[#b45309]'
+                            : 'bg-white/10 hover:bg-white/20 border border-white/10'
                         } ${processingId !== null && processingId !== plan.id ? 'opacity-50' : ''}`}
                       >
-                        {processingId === plan.id 
-                          ? 'Traitement...' 
-                          : isCurrentPlan 
-                            ? 'Plan actuel'
-                            : isUpgrade 
-                              ? 'Mettre à niveau'
-                              : 'Souscrire à ce plan'}
+                        {processingId === plan.id
+                          ? 'Traitement...'
+                          : isCurrentPlan
+                          ? 'Plan actuel'
+                          : isUpgrade
+                          ? 'Mettre à niveau'
+                          : 'Souscrire à ce plan'}
                       </button>
                     </div>
                   </div>
