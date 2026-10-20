@@ -33,22 +33,19 @@ export default function RoutersPage() {
       const data = await response.json();
 
       if (Array.isArray(data)) {
-        const now = new Date();
-        const transformedRouters: Router[] = data.map(item => {
-          const lastSeen = item.LastSeen ? new Date(item.LastSeen) : null;
-          const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 10 * 60 * 1000;
+        const transformedRouters: Router[] = data.map((item: any) => {
+          // ✅ Utilisation de WgConnected au lieu de LastSeen
+          const isOnline = item.WgConnected === true || item.wg_connected === true;
           
           let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
           let statusDisplay = 'Jamais connecté';
           
-          if (lastSeen) {
-            if (isOnline) {
-              connectionStatus = 'online';
-              statusDisplay = '✅ En ligne';
-            } else {
-              connectionStatus = 'offline';
-              statusDisplay = '⚠️ Hors ligne';
-            }
+          if (isOnline) {
+            connectionStatus = 'online';
+            statusDisplay = '✅ En ligne';
+          } else if (item.WgPublicKey || item.wg_public_key || item.LastSeen) {
+            connectionStatus = 'offline';
+            statusDisplay = '⚠️ Hors ligne';
           }
 
           return {
@@ -113,19 +110,15 @@ export default function RoutersPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Jamais';
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
       });
-    } catch {
-      return 'Date invalide';
-    }
+    } catch { return 'Date invalide'; }
   };
 
   const getStatusBadge = (router: Router) => {
@@ -159,7 +152,6 @@ export default function RoutersPage() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* En-tête avec badge et bouton d'ajout */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#d97706] to-[#b45309] text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg mb-3">
@@ -185,7 +177,6 @@ export default function RoutersPage() {
           </Link>
         </div>
 
-        {/* Tableau professionnel */}
         {routers.length === 0 ? (
           <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-xl p-12 text-center border border-white/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
@@ -201,10 +192,7 @@ export default function RoutersPage() {
               <p className="text-gray-400 mb-8 max-w-md mx-auto">
                 Commencez par ajouter votre premier routeur MikroTik pour gérer vos points d'accès Wi-Fi.
               </p>
-              <Link
-                href="/routers/new"
-                className="inline-flex items-center gap-2 bg-[#d97706] text-white font-semibold py-3 px-8 rounded-xl hover:shadow-lg hover:bg-[#b45309] transition-all duration-300"
-              >
+              <Link href="/routers/new" className="inline-flex items-center gap-2 bg-[#d97706] text-white font-semibold py-3 px-8 rounded-xl hover:shadow-lg hover:bg-[#b45309] transition-all duration-300">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round"/>
                 </svg>
@@ -216,7 +204,6 @@ export default function RoutersPage() {
           <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-xl overflow-hidden border border-white/10 relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
-            {/* Tableau pour desktop */}
             <div className="hidden lg:block overflow-x-auto relative z-10">
               <table className="w-full">
                 <thead>
@@ -258,7 +245,7 @@ export default function RoutersPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-400">
-                            {router.last_seen ? formatDate(router.last_seen) : 'Jamais'}
+                            {formatDate(router.last_seen)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -279,33 +266,22 @@ export default function RoutersPage() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <Link
-                            href={`/routers/${router.id}/profiles`}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/5 text-[#d97706] rounded-lg hover:bg-[#d97706] hover:text-white transition-all duration-300 text-sm font-medium"
-                          >
+                          <Link href={`/routers/${router.id}/profiles`} className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/5 text-[#d97706] rounded-lg hover:bg-[#d97706] hover:text-white transition-all duration-300 text-sm font-medium">
                             Gérer
                           </Link>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-400">
-                          {router.created_at ? formatDate(router.created_at) : 'N/A'}
+                          {formatDate(router.created_at)}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <Link
-                              href={`/routers/${router.id}`}
-                              className="p-2 text-gray-400 hover:text-[#d97706] hover:bg-white/10 rounded-lg transition-all"
-                              title="Modifier"
-                            >
+                            <Link href={`/routers/${router.id}`} className="p-2 text-gray-400 hover:text-[#d97706] hover:bg-white/10 rounded-lg transition-all" title="Modifier">
                               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
                                 <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
                               </svg>
                             </Link>
-                            <button
-                              onClick={() => handleDelete(router.id!)}
-                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                              title="Supprimer"
-                            >
+                            <button onClick={() => handleDelete(router.id!)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all" title="Supprimer">
                               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -320,7 +296,6 @@ export default function RoutersPage() {
               </table>
             </div>
 
-            {/* Cartes pour mobile/tablette */}
             <div className="lg:hidden space-y-4 p-4 relative z-10">
               {routers.map((router) => {
                 const status = getStatusBadge(router);
@@ -343,64 +318,32 @@ export default function RoutersPage() {
                         </span>
                       </div>
                     </div>
-
                     <div className="p-4 space-y-3">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-400">Dernière connexion</span>
-                        <span className="font-medium text-white">
-                          {router.last_seen ? formatDate(router.last_seen) : 'Jamais'}
-                        </span>
+                        <span className="font-medium text-white">{formatDate(router.last_seen)}</span>
                       </div>
-                      
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-400">Créé le</span>
-                        <span className="font-medium text-white">
-                          {router.created_at ? formatDate(router.created_at) : 'N/A'}
-                        </span>
+                        <span className="font-medium text-white">{formatDate(router.created_at)}</span>
                       </div>
-
                       <div className="grid grid-cols-2 gap-3 mt-4">
                         {router.config_token ? (
-                          <button
-                            onClick={() => copyCommand(router.id!, router.config_token!)}
-                            disabled={copyingId === router.id}
-                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-300 text-sm font-medium ${
-                              copyingId === router.id
-                                ? 'bg-green-500 text-white scale-105 col-span-2'
-                                : 'bg-white/10 text-gray-300 hover:bg-[#d97706] hover:text-white'
-                            }`}
-                          >
+                          <button onClick={() => copyCommand(router.id!, router.config_token!)} disabled={copyingId === router.id} className={`flex items-center justify-center gap-2 py-2.5 rounded-xl transition-all duration-300 text-sm font-medium ${copyingId === router.id ? 'bg-green-500 text-white scale-105 col-span-2' : 'bg-white/10 text-gray-300 hover:bg-[#d97706] hover:text-white'}`}>
                             {copyingId === router.id ? 'Commande copiée !' : 'Copier commande'}
                           </button>
                         ) : (
-                          <div className="col-span-2 py-2.5 bg-white/5 text-gray-500 rounded-xl text-sm text-center">
-                            Non configuré
-                          </div>
+                          <div className="col-span-2 py-2.5 bg-white/5 text-gray-500 rounded-xl text-sm text-center">Non configuré</div>
                         )}
-                        
                         {(!router.config_token || copyingId !== router.id) && (
-                          <Link
-                            href={`/routers/${router.id}/profiles`}
-                            className="flex items-center justify-center gap-2 py-2.5 bg-white/10 text-[#d97706] rounded-xl hover:bg-[#d97706] hover:text-white transition-all text-sm font-medium"
-                          >
+                          <Link href={`/routers/${router.id}/profiles`} className="flex items-center justify-center gap-2 py-2.5 bg-white/10 text-[#d97706] rounded-xl hover:bg-[#d97706] hover:text-white transition-all text-sm font-medium">
                             Forfaits
                           </Link>
                         )}
                       </div>
-
                       <div className="flex gap-2 pt-2">
-                        <Link
-                          href={`/routers/${router.id}`}
-                          className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-white/10 text-gray-300 rounded-xl hover:border-[#d97706] hover:text-[#d97706] transition-all text-sm font-medium"
-                        >
-                          Modifier
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(router.id!)}
-                          className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-white/10 text-gray-300 rounded-xl hover:border-red-500 hover:text-red-500 hover:bg-red-500/10 transition-all text-sm font-medium"
-                        >
-                          Supprimer
-                        </button>
+                        <Link href={`/routers/${router.id}`} className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-white/10 text-gray-300 rounded-xl hover:border-[#d97706] hover:text-[#d97706] transition-all text-sm font-medium">Modifier</Link>
+                        <button onClick={() => handleDelete(router.id!)} className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-white/10 text-gray-300 rounded-xl hover:border-red-500 hover:text-red-500 hover:bg-red-500/10 transition-all text-sm font-medium">Supprimer</button>
                       </div>
                     </div>
                   </div>
@@ -412,14 +355,8 @@ export default function RoutersPage() {
       </div>
 
       <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1) translate(-50%, -50%); opacity: 1; }
-          50% { transform: scale(1.1) translate(-45%, -45%); opacity: 0.9; }
-        }
-        @keyframes ripple {
-          0% { width: 20px; height: 20px; opacity: 0.5; }
-          100% { width: 80px; height: 80px; opacity: 0; }
-        }
+        @keyframes pulse { 0%, 100% { transform: scale(1) translate(-50%, -50%); opacity: 1; } 50% { transform: scale(1.1) translate(-45%, -45%); opacity: 0.9; } }
+        @keyframes ripple { 0% { width: 20px; height: 20px; opacity: 0.5; } 100% { width: 80px; height: 80px; opacity: 0; } }
       `}</style>
     </Layout>
   );

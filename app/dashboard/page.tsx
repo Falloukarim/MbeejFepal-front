@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { getRouters, getProfiles, getWallet, getMySessions, getOwnerStats, type Router, type HotspotProfile, type Wallet, type Session, type DashboardStatsResponse } from '@/lib/api';
+import { getRouters, getProfiles, getWallet, getMySessions, type Router, type HotspotProfile, type Wallet, type Session } from '@/lib/api';
 import { isAdmin } from '@/lib/auth';
 
 interface RouterWithStatus extends Router {
@@ -17,33 +17,26 @@ export default function DashboardPage() {
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statsData = await getOwnerStats().catch(() => null);
-        if (statsData) setDashboardStats(statsData);
-
+        // 1. Charger les routeurs
         const routersData = await getRouters();
-        const now = new Date();
         const adaptedRouters = (routersData as any[])
           .map((item) => {
-            const lastSeen = item.LastSeen ? new Date(item.LastSeen) : null;
-            const isOnline = lastSeen && (now.getTime() - lastSeen.getTime()) < 10 * 60 * 1000;
+            const isOnline = item.WgConnected === true || item.wg_connected === true;
             
             let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
             let statusDisplay = 'Jamais connecté';
             
-            if (lastSeen) {
-              if (isOnline) {
-                connectionStatus = 'online';
-                statusDisplay = '✅ En ligne';
-              } else {
-                connectionStatus = 'offline';
-                statusDisplay = '⚠️ Hors ligne';
-              }
+            if (isOnline) {
+              connectionStatus = 'online';
+              statusDisplay = '✅ En ligne';
+            } else if (item.WgPublicKey || item.wg_public_key || item.LastSeen) {
+              connectionStatus = 'offline';
+              statusDisplay = '⚠️ Hors ligne';
             }
 
             return {
@@ -61,6 +54,7 @@ export default function DashboardPage() {
 
         setRouters(adaptedRouters);
 
+        // 2. Charger les profils (admin uniquement)
         if (isAdmin()) {
           try {
             const profilesData = await getProfiles();
@@ -85,6 +79,7 @@ export default function DashboardPage() {
           }
         }
         
+        // 3. Charger Wallet et Sessions
         const [walletData, sessionsData] = await Promise.all([
           getWallet().catch(() => null),
           getMySessions().catch(() => []),
@@ -151,30 +146,6 @@ export default function DashboardPage() {
     return { text: 'Jamais connecté', color: 'bg-yellow-500', textColor: 'text-yellow-400' };
   };
 
-  // ✅ Les données de stats
-  const displayStats = [
-    {
-      name: "Revenus aujourd'hui",
-      value: `${dashboardStats?.stats?.revenue_today?.toLocaleString() || 0} FCFA`,
-      icon: '💰',
-    },
-    {
-      name: "Revenus ce mois",
-      value: `${dashboardStats?.stats?.revenue_month?.toLocaleString() || 0} FCFA`,
-      icon: '📈',
-    },
-    {
-      name: "Sessions actives",
-      value: dashboardStats?.stats?.active_sessions || sessions.filter(s => s.state === 'ACTIVE').length || 0,
-      icon: '🕒',
-    },
-    {
-      name: "Clients uniques (Auj.)",
-      value: dashboardStats?.stats?.unique_clients_today || 0,
-      icon: '👥',
-    },
-  ];
-
   if (loading) {
     return (
       <Layout>
@@ -207,55 +178,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 mt-2">Gérez vos routeurs, forfaits et suivez vos revenus</p>
         </div>
 
-        {/* ✅ CARTES DE STATISTIQUES (Style Wallet) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {displayStats.map((stat, index) => (
-            <div
-              key={index}
-              className="relative overflow-hidden bg-gradient-to-r from-gray-900 to-black rounded-2xl p-6 text-white shadow-xl transform transition-all duration-300 hover:-translate-y-1 animate-[slideUp_0.5s_ease-out]"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              {/* Effet de halo (comme le wallet) */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-4xl animate-[float_3s_ease-in-out_infinite]" style={{ animationDelay: `${index * 0.2}s` }}>
-                    {stat.icon}
-                  </div>
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">{stat.name}</span>
-                </div>
-                {/* Valeur en orange ambré */}
-                <div className="text-3xl font-extrabold text-amber-500">{stat.value}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Top des forfaits vendus */}
-        <div className="bg-white/95 backdrop-blur-[20px] border border-[rgba(217,119,6,0.2)] rounded-[32px] shadow-xl p-6 mb-8 animate-[slideUp_0.6s_ease-out]">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-            <span className="text-2xl">🏆</span> Top 3 des forfaits vendus
-          </h2>
-          <div className="space-y-4">
-            {dashboardStats?.top_profiles?.map((p, i) => (
-              <div key={i} className="flex justify-between items-center p-4 bg-gradient-to-r from-[#fff7e6] to-white rounded-xl border border-[rgba(217,119,6,0.1)]">
-                <span className="font-bold text-gray-800 flex items-center gap-3">
-                  <span className="w-8 h-8 bg-[#d97706] text-white rounded-full flex items-center justify-center text-sm">{i + 1}</span>
-                  {p.profile_name}
-                </span>
-                <span className="bg-[#d97706] text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-md">
-                  {p.sales_count} ventes
-                </span>
-              </div>
-            ))}
-            {(!dashboardStats?.top_profiles || dashboardStats.top_profiles.length === 0) && (
-              <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-xl">Aucune vente enregistrée pour le moment.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Actions rapides (inchangé) */}
+        {/* Actions rapides */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Link href="/routers/new" className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500"></div>
@@ -285,7 +208,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Routeurs & Sessions (inchangé) */}
+        {/* Routeurs & Sessions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl shadow-xl animate-[slideUp_0.7s_ease-out]">
             <div className="relative z-10">
