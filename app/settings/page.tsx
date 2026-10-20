@@ -18,10 +18,7 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const { register, handleSubmit, reset } = useForm<SettingsForm>({
-    defaultValues: {
-      payout_phone: '',
-      payout_method: 'wave-senegal',
-    },
+    defaultValues: { payout_phone: '', payout_method: 'wave-senegal' },
   });
 
   useEffect(() => {
@@ -71,54 +68,57 @@ export default function SettingsPage() {
         <p className="text-gray-600 mt-2">Gérez vos informations de compte et de retrait</p>
       </div>
 
-      <div className="max-w-2xl bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-xl p-8">
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-          <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white">
-            <Smartphone className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Compte de réception (Payout)</h2>
-            <p className="text-sm text-gray-500">Où souhaitez-vous recevoir vos gains ?</p>
-          </div>
-        </div>
+      <div className="max-w-2xl relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-3xl shadow-2xl p-8 border border-white/10">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Numéro Wave
-            </label>
-            <input
-              type="tel"
-              {...register('payout_phone', { required: true })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition"
-              placeholder="Ex: 771234567"
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              Format : 9 chiffres commençant par 7 (sans l'indicatif +221).
-            </p>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-8 pb-6 border-b border-white/10">
+            <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
+              <Smartphone className="w-6 h-6 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Compte de réception (Payout)</h2>
+              <p className="text-sm text-gray-400">Où souhaitez-vous recevoir vos gains ?</p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Opérateur
-            </label>
-            <select
-              {...register('payout_method')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none transition bg-white"
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Numéro Wave
+              </label>
+              <input
+                type="tel"
+                {...register('payout_phone', { required: true })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition"
+                placeholder="Ex: 771234567"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Format : 9 chiffres commençant par 7 (sans l'indicatif +221).
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Opérateur
+              </label>
+              <select
+                {...register('payout_method')}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition [&>option]:bg-gray-900"
+              >
+                <option value="wave-senegal">Wave Sénégal</option>
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="w-full bg-[#d97706] text-white font-bold py-3 rounded-xl hover:bg-[#b45309] transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <option value="wave-senegal">Wave Sénégal</option>
-              {/* Tu pourras ajouter Orange Money plus tard ici */}
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-3 rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2"
-          >
-            {isSaving ? 'Sauvegarde...' : <><Save className="w-5 h-5" /> Enregistrer mes informations</>}
-          </button>
-        </form>
+              {isSaving ? 'Sauvegarde...' : <><Save className="w-5 h-5" /> Enregistrer mes informations</>}
+            </button>
+          </form>
+        </div>
       </div>
     </Layout>
   );

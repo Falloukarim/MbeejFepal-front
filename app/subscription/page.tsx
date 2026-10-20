@@ -2,12 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  getSubscriptionPlans, 
-  chooseSubscription, 
-  upgradeToLevel2, // Ajout de l'import
-  SubscriptionPlan 
-} from '@/lib/api';
+import { getSubscriptionPlans, chooseSubscription, upgradeToLevel2, SubscriptionPlan } from '@/lib/api';
 import { useSubscription } from '../context/SubscriptionContext';
 import { Check, Shield, Zap, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,7 +14,6 @@ export default function SubscriptionPage() {
   const router = useRouter();
   const { status, refreshStatus } = useSubscription();
 
-  // Redirection si déjà en Level 2 (le plus haut niveau)
   useEffect(() => {
     if (status?.active && status.subscription?.plan.level === 'level2') {
       router.push('/dashboard');
@@ -43,12 +37,11 @@ export default function SubscriptionPage() {
   const handleChoose = async (plan: SubscriptionPlan) => {
     setProcessingId(plan.id);
 
-    // CAS SPÉCIAL : Upgrade de Level 1 vers Level 2
     if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
       try {
         await upgradeToLevel2();
-        toast.success('Passage au Niveau 2 effectué ! Facturation au prochain cycle.');
-        await refreshStatus(); // Met à jour le contexte
+        toast.success('Passage au Niveau 2 effectué !');
+        await refreshStatus();
         router.push('/dashboard');
       } catch (error) {
         toast.error("Erreur lors de l'upgrade");
@@ -57,7 +50,6 @@ export default function SubscriptionPage() {
       return;
     }
 
-    // CAS NORMAL : Souscription ou Renouvellement via PayDunya
     try {
       const res = await chooseSubscription(plan.id);
       toast.success('Redirection vers PayDunya...');
@@ -68,7 +60,6 @@ export default function SubscriptionPage() {
     }
   };
 
-  // Fonction pour calculer le prix réel selon le nombre de routeurs actuels
   const calculatePrice = (plan: SubscriptionPlan) => {
     const currentRouters = status?.router_count || 0;
     if (plan.extra_router_price > 0 && currentRouters > plan.included_routers) {
@@ -79,11 +70,11 @@ export default function SubscriptionPage() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Chargement des offres...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-900">Chargement...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#f8fafc] py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-gray-900 mb-4">Choisissez votre abonnement</h1>
@@ -102,46 +93,48 @@ export default function SubscriptionPage() {
             const isUpgrade = isLevel1User && plan.level === 'level2';
 
             return (
-              <div key={plan.id} className={`bg-white rounded-3xl shadow-xl overflow-hidden border-2 ${plan.level === 'level2' ? 'border-amber-500 relative' : 'border-transparent'}`}>
-                
+              <div key={plan.id} className={`relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl p-8 border ${plan.level === 'level2' ? 'border-amber-500' : 'border-white/10'}`}>
+                {/* Effet de halo */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
                 {plan.level === 'level2' && (
-                  <div className="absolute top-0 right-0 bg-amber-500 text-white px-4 py-1 rounded-bl-lg font-semibold text-sm">
+                  <div className="absolute top-0 right-0 bg-amber-500 text-white px-4 py-1 rounded-bl-lg font-semibold text-sm z-20">
                     Recommandé
                   </div>
                 )}
 
                 {isCurrentPlan && (
-                  <div className="absolute top-0 left-0 bg-green-500 text-white px-4 py-1 rounded-br-lg font-semibold text-sm">
+                  <div className="absolute top-0 left-0 bg-green-500 text-white px-4 py-1 rounded-br-lg font-semibold text-sm z-20">
                     Votre plan actuel
                   </div>
                 )}
                 
-                <div className="p-8 pt-10">
+                <div className="relative z-10 pt-4">
                   <div className="flex items-center gap-3 mb-4">
-                    {plan.level === 'level1' ? <Shield className="w-8 h-8 text-gray-700" /> : <Zap className="w-8 h-8 text-amber-500" />}
-                    <h2 className="text-2xl font-bold text-gray-900">{plan.name}</h2>
+                    {plan.level === 'level1' ? <Shield className="w-8 h-8 text-gray-400" /> : <Zap className="w-8 h-8 text-amber-500" />}
+                    <h2 className="text-2xl font-bold text-white">{plan.name}</h2>
                   </div>
                   
                   <div className="mb-6">
-                    <span className="text-5xl font-extrabold text-gray-900">
+                    <span className="text-5xl font-extrabold text-amber-500">
                       {actualPrice.toLocaleString()}
                     </span>
-                    <span className="text-xl text-gray-500"> FCFA / mois</span>
+                    <span className="text-xl text-gray-400"> FCFA / mois</span>
                   </div>
 
                   <ul className="space-y-4 mb-8">
-                    <li className="flex items-center gap-3 text-gray-700">
+                    <li className="flex items-center gap-3 text-gray-300">
                       <Check className="w-5 h-5 text-green-500" />
                       Jusqu'à <strong>{plan.included_routers} routeurs</strong> inclus
                     </li>
                     {plan.extra_router_price > 0 && (
-                      <li className="flex items-center gap-3 text-gray-700">
+                      <li className="flex items-center gap-3 text-gray-300">
                         <Check className="w-5 h-5 text-green-500" />
                         <strong>+{plan.extra_router_price.toLocaleString()} FCFA</strong> par routeur supplémentaire
                       </li>
                     )}
                     {isUpgrade && (
-                      <li className="flex items-start gap-3 text-amber-700 bg-amber-50 p-3 rounded-lg mt-4 text-sm">
+                      <li className="flex items-start gap-3 text-amber-200 bg-amber-500/10 p-3 rounded-lg mt-4 text-sm border border-amber-500/20">
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         En passant au Niveau 2, vous débloquez immédiatement la création de routeurs. La différence sera facturée le mois prochain.
                       </li>
@@ -153,10 +146,10 @@ export default function SubscriptionPage() {
                     disabled={processingId !== null || isCurrentPlan}
                     className={`w-full py-4 rounded-xl font-bold text-white transition-all shadow-lg ${
                       isCurrentPlan 
-                        ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                        ? 'bg-white/10 text-gray-500 cursor-not-allowed border border-white/5'
                         : plan.level === 'level2' 
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700' 
-                          : 'bg-gray-800 hover:bg-black'
+                          ? 'bg-[#d97706] hover:bg-[#b45309]' 
+                          : 'bg-white/10 hover:bg-white/20 border border-white/10'
                     } ${processingId !== null && processingId !== plan.id ? 'opacity-50' : ''}`}
                   >
                     {processingId === plan.id 

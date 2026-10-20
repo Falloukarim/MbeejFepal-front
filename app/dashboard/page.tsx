@@ -23,11 +23,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Charger les statistiques (NOUVEAU)
         const statsData = await getOwnerStats().catch(() => null);
         if (statsData) setDashboardStats(statsData);
 
-        // 2. Charger les routeurs
         const routersData = await getRouters();
         const now = new Date();
         const adaptedRouters = (routersData as any[])
@@ -63,7 +61,6 @@ export default function DashboardPage() {
 
         setRouters(adaptedRouters);
 
-        // 3. Charger les profils (admin uniquement)
         if (isAdmin()) {
           try {
             const profilesData = await getProfiles();
@@ -88,7 +85,6 @@ export default function DashboardPage() {
           }
         }
         
-        // 4. Charger Wallet et Sessions
         const [walletData, sessionsData] = await Promise.all([
           getWallet().catch(() => null),
           getMySessions().catch(() => []),
@@ -155,7 +151,7 @@ export default function DashboardPage() {
     return { text: 'Jamais connecté', color: 'bg-yellow-500', textColor: 'text-yellow-400' };
   };
 
-  // ✅ 1. Remplacement des anciennes stats par les vraies données
+  // ✅ Les données de stats
   const displayStats = [
     {
       name: "Revenus aujourd'hui",
@@ -211,29 +207,32 @@ export default function DashboardPage() {
           <p className="text-gray-600 mt-2">Gérez vos routeurs, forfaits et suivez vos revenus</p>
         </div>
 
-        {/* Statistiques */}
+        {/* ✅ CARTES DE STATISTIQUES (Style Wallet) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {displayStats.map((stat, index) => (
             <div
               key={index}
-              className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 animate-[slideUp_0.5s_ease-out]"
+              className="relative overflow-hidden bg-gradient-to-r from-gray-900 to-black rounded-2xl p-6 text-white shadow-xl transform transition-all duration-300 hover:-translate-y-1 animate-[slideUp_0.5s_ease-out]"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500"></div>
+              {/* Effet de halo (comme le wallet) */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+              
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-4xl animate-[float_3s_ease-in-out_infinite]" style={{ animationDelay: `${index * 0.2}s` }}>
                     {stat.icon}
                   </div>
-                  <span className="text-sm font-medium text-gray-300">{stat.name}</span>
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">{stat.name}</span>
                 </div>
-                <div className="text-3xl font-bold">{stat.value}</div>
+                {/* Valeur en orange ambré */}
+                <div className="text-3xl font-extrabold text-amber-500">{stat.value}</div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* ✅ 2. NOUVEAU : Top des forfaits vendus */}
+        {/* Top des forfaits vendus */}
         <div className="bg-white/95 backdrop-blur-[20px] border border-[rgba(217,119,6,0.2)] rounded-[32px] shadow-xl p-6 mb-8 animate-[slideUp_0.6s_ease-out]">
           <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
             <span className="text-2xl">🏆</span> Top 3 des forfaits vendus
@@ -330,7 +329,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-[#d97706] rounded-lg flex items-center justify-center text-white"><i className="bi bi-wifi text-xs"></i></div>
                       <div>
-                        <p className="font-medium text-white">Session #{session.id}</p>
+                        <p className="font-medium text-white">Session </p>
                         <p className="text-xs text-gray-400">MAC: {session.mac_address || 'Inconnue'}</p>
                       </div>
                     </div>
