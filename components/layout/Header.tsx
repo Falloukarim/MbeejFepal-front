@@ -47,13 +47,13 @@ export default function Header({ onMenuClick, user }: HeaderProps) {
           </div>
 
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/5 border border-white/10 text-gray-300 rounded-xl hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 transition-all duration-300 group"
-            title="Déconnexion"
-          >
-            <LogOut className="w-4 sm:w-5 h-4 sm:h-5 group-hover:scale-110 transition-transform" />
-            <span className="hidden sm:inline text-sm font-medium">Déconnexion</span>
-          </button>
+  data-logout                          // ✅ AJOUTE CETTE LIGNE
+  onClick={handleLogout}
+  className="flex items-center gap-3 w-full px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
+>
+  <LogOut className="w-5 h-5" />
+  <span>Se déconnecter</span>
+</button>
         </div>
       </div>
     </header>

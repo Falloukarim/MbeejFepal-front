@@ -15,43 +15,6 @@ export default function SubscriptionPage() {
   const router = useRouter();
   const { status, refreshStatus } = useSubscription();
 
-  // ✅ NOUVEAU : rend le bouton de déconnexion cliquable malgré le pointer-events-none du wrapper
-  useEffect(() => {
-    const enableLogoutButton = () => {
-      const els = document.querySelectorAll<HTMLElement>(
-        'button, a, [role="button"]'
-      );
-      els.forEach((el) => {
-        const text = (el.textContent || '').toLowerCase().trim();
-        const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
-        const title = (el.getAttribute('title') || '').toLowerCase();
-
-        const isLogout =
-          text.includes('déconnexion') ||
-          text.includes('deconnexion') ||
-          text.includes('se déconnecter') ||
-          text.includes('logout') ||
-          text.includes('sign out') ||
-          ariaLabel.includes('éconnect') ||
-          ariaLabel.includes('ogout') ||
-          title.includes('éconnect') ||
-          title.includes('ogout') ||
-          el.hasAttribute('data-logout') ||
-          el.hasAttribute('data-logout-button');
-
-        if (isLogout) {
-          el.style.pointerEvents = 'auto';
-          el.style.cursor = 'pointer';
-        }
-      });
-    };
-
-    // Premier passage immédiat, puis un second après le montage complet du Layout
-    enableLogoutButton();
-    const timer = setTimeout(enableLogoutButton, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
   useEffect(() => {
     if (status?.active && status.subscription?.plan.level === 'level2') {
       router.push('/dashboard');
@@ -118,10 +81,10 @@ export default function SubscriptionPage() {
   }
 
   return (
-    // ✅ Restauré : wrapper non-cliquable
-    <div className="pointer-events-none">
+    // ✅ Wrapper non-cliquable + échappement UNIQUEMENT des [data-logout]
+    <div className="pointer-events-none [&_[data-logout]]:pointer-events-auto [&_[data-logout]]:cursor-pointer">
       <Layout>
-        {/* ✅ Contenu cliquable (boutons de souscription) */}
+        {/* ✅ Contenu (boutons de souscription) cliquable */}
         <div className="pointer-events-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
