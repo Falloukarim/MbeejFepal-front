@@ -51,7 +51,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center py-2 px-3 relative overflow-hidden bg-[#f8fafc]">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(200,200,210,0.3)_0%,_transparent_60%),_radial-gradient(ellipse_at_bottom_left,_rgba(180,180,200,0.3)_0%,_transparent_60%)]" />
-      
+
       <div className="w-full max-w-sm relative z-10 my-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -62,7 +62,7 @@ export default function LoginPage() {
           {/* Header */}
           <div className="relative p-6 text-center overflow-hidden border-b border-white/10">
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            
+
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -93,7 +93,7 @@ export default function LoginPage() {
             >
               MbeejFepal
             </motion.h2>
-            
+
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -136,7 +136,15 @@ export default function LoginPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.6 }}
               >
-                <label className="block text-xs font-semibold text-gray-300 mb-1">Mot de passe</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-gray-300">Mot de passe</label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-[11px] text-amber-500 hover:text-amber-400 font-semibold transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <KeyRound className="h-4 w-4 text-amber-500" />

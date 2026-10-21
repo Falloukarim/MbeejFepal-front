@@ -16,7 +16,6 @@ export interface User {
   created_at: string;
   payout_phone?: string;
   payout_method?: string;
-
 }
 
 export interface Router {
@@ -28,9 +27,10 @@ export interface Router {
   created_at: string;
   connection_status?: 'online' | 'offline' | 'never_connected';
   status_display?: string;
-  portal_name?: string;   // ✅ NOUVEAU
-  primary_color?: string; // ✅ NOUVEAU
-  logo_url?: string;      // ✅ NOUVEAU
+  daily_quota_gb?: number;
+  portal_name?: string;
+  primary_color?: string;
+  logo_url?: string;
 }
 
 export interface HotspotProfile {
@@ -41,7 +41,7 @@ export interface HotspotProfile {
   price: number;
   currency: string;
   bandwidth_limit: string | null;
-  max_devices: number; // ✅ NOUVEAU
+  max_devices: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -121,7 +121,15 @@ export interface SubscriptionStatus {
 }
 
 export interface LoginResponse { token: string; }
-export interface RegisterData { name: string; email: string; phone: string; password: string; role?: 'ADMIN' | 'USER'; }
+
+// ✅ role retiré : tous les inscrits sont USER (admin via route dédiée)
+export interface RegisterData {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
 export interface ApiError { message: string; statusCode?: number; }
 
 // ==========================================
@@ -134,7 +142,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Intercepteur requête : on utilise safeLocalStorage
 api.interceptors.request.use(
   (config) => {
     const token = safeLocalStorage.getItem('token');
@@ -150,20 +157,17 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     if (error.response?.status === 401) {
-      // 401 = non authentifié → on déconnecte
       safeLocalStorage.removeItem('token');
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         toast.error('Session expirée, veuillez vous reconnecter');
         window.location.href = '/login';
       }
     } else if (error.response?.status === 402) {
-      // 402 = abonnement requis
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/subscription')) {
         toast.error('Un abonnement actif est requis.');
         window.location.href = '/subscription';
       }
     } else if (error.response?.status === 403) {
-      // ✅ 403 = interdit (mais authentifié) → on affiche un toast sans rediriger
       const data = error.response.data as any;
       if (data?.error === 'plan_limit_reached') {
         toast.error(data.message || 'Limite de routeurs atteinte.');
@@ -178,6 +182,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 // ==========================================
 // AUTHENTIFICATION
 // ==========================================
@@ -193,6 +198,21 @@ export const login = async (email: string, password: string) => {
 
 export const getMe = async () => {
   const response = await api.get<User>('/me');
+  return response.data;
+};
+
+// ✅ NOUVEAU : Demande de réinitialisation (anti-énumération, toujours 200)
+export const forgotPassword = async (email: string) => {
+  const response = await api.post<{ message: string }>('/forgot-password', { email });
+  return response.data;
+};
+
+// ✅ NOUVEAU : Réinitialisation via token
+export const resetPassword = async (token: string, newPassword: string) => {
+  const response = await api.post<{ message: string }>('/reset-password', {
+    token,
+    new_password: newPassword,
+  });
   return response.data;
 };
 
@@ -221,6 +241,21 @@ export const createRouter = async (name: string) => {
 
 export const deleteRouter = async (id: number) => {
   await api.delete(`/routers/${id}`);
+};
+
+// ✅ CORRIGÉ : accepte les champs de personnalisation (optionnels)
+export const updateRouter = async (
+  id: number,
+  data: {
+    name: string;
+    daily_quota_gb: number;
+    portal_name?: string;
+    primary_color?: string;
+    logo_url?: string;
+  }
+) => {
+  const response = await api.put(`/routers/${id}`, data);
+  return response.data;
 };
 
 // ==========================================
@@ -321,10 +356,10 @@ export const chooseSubscription = async (planId: number) => {
 export const upgradeToLevel2 = async () => {
   await api.post('/api/subscription/upgrade');
 };
+
 // ==========================================
 // Payout (Retrait)
 // ==========================================
-
 export interface PayoutInfo {
   payout_phone: string;
   payout_method: string;
@@ -340,10 +375,6 @@ export const requestWithdrawal = async () => {
   return response.data;
 };
 
-export const updateRouter = async (id: number, data: { name: string, daily_quota_gb: number }) => {
-  const response = await api.put(`/routers/${id}`, data);
-  return response.data;
-};
 // ==========================================
 // STATISTIQUES PROPRIÉTAIRE
 // ==========================================
@@ -368,6 +399,7 @@ export const getOwnerStats = async () => {
   const response = await api.get<DashboardStatsResponse>('/api/stats/dashboard');
   return response.data;
 };
+
 export const getStatsChart = async () => {
   const response = await api.get('/api/stats/chart');
   return response.data;
@@ -382,4 +414,5 @@ export const getProfileStats = async () => {
   const response = await api.get('/api/stats/profiles');
   return response.data;
 };
+
 export default api;
