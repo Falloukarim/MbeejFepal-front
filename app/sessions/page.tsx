@@ -206,21 +206,12 @@ export default function SessionsPage() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-3 flex-wrap">
-                            <p className="font-medium text-white">Session #{session.id}</p>
-                            {getStateBadge(session.state)}
                             <span className="text-xs text-gray-400">{formatDate(session.created_at)}</span>
                           </div>
                         </div>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
-                          <i className="bi bi-person text-[#d97706] text-xs"></i>
-                          <span className="text-gray-400 text-xs">Client:</span>
-                          <span className="text-white font-mono text-xs" title={session.users_id}>
-                            {formatUserId(session.users_id)}
-                          </span>
-                        </div>
 
                         <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
                           <i className="bi bi-router text-[#d97706] text-xs"></i>

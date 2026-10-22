@@ -63,12 +63,13 @@ export default function SettingsPage() {
 
   return (
     <Layout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-gray-600 mt-2">Gérez vos informations de compte et de retrait</p>
+      {/* ✅ CORRECTION ICI : text-white et text-gray-300 */}
+      <div className="mb-8 max-w-2xl">
+        <h1 className="text-3xl font-bold text-white">Paramètres</h1>
+        <p className="text-gray-300 mt-2">Gérez vos informations de compte et de retrait</p>
       </div>
 
-      <div className="max-w-2xl relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-3xl shadow-2xl p-8 border border-white/10">
+      <div className="max-w-2xl relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl p-8 border border-white/10">
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
         <div className="relative z-10">

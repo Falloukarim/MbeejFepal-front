@@ -56,9 +56,10 @@ export default function StatisticsPage() {
 
   return (
     <Layout>
+      {/* ✅ CORRECTION ICI : text-white et text-gray-300 */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Statistiques détaillées</h1>
-        <p className="text-gray-600 mt-2">Analysez les performances de votre réseau en temps réel</p>
+        <h1 className="text-3xl font-bold text-white">Statistiques détaillées</h1>
+        <p className="text-gray-300 mt-2">Analysez les performances de votre réseau en temps réel</p>
       </div>
 
       {/* 1. Cartes de résumé (KPI) - Style Wallet */}

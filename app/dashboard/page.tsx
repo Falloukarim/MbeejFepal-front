@@ -4,8 +4,26 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { getRouters, getProfiles, getWallet, getMySessions, type Router, type HotspotProfile, type Wallet, type Session } from '@/lib/api';
+import { 
+  getRouters, 
+  getProfiles, 
+  getWallet, 
+  getMySessions, 
+  type Router, 
+  type HotspotProfile, 
+  type Wallet, 
+  type Session 
+} from '@/lib/api';
 import { isAdmin } from '@/lib/auth';
+import { 
+  Router as RouterIcon, 
+  Tag, 
+  Wallet as WalletIcon, 
+  Activity, 
+  Clock, 
+  ArrowRight,
+  Wifi
+} from 'lucide-react';
 
 interface RouterWithStatus extends Router {
   connection_status?: 'online' | 'offline' | 'never_connected';
@@ -33,10 +51,10 @@ export default function DashboardPage() {
             
             if (isOnline) {
               connectionStatus = 'online';
-              statusDisplay = '✅ En ligne';
+              statusDisplay = 'En ligne';
             } else if (item.WgPublicKey || item.wg_public_key || item.LastSeen) {
               connectionStatus = 'offline';
-              statusDisplay = '⚠️ Hors ligne';
+              statusDisplay = 'Hors ligne';
             }
 
             return {
@@ -129,32 +147,17 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Date inconnue';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Date invalide';
-      return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-      return 'Date invalide';
-    }
-  };
-
   const getRouterStatus = (router: RouterWithStatus) => {
     if (router.connection_status === 'online') return { text: 'En ligne', color: 'bg-green-500', textColor: 'text-green-400' };
     if (router.connection_status === 'offline') return { text: 'Hors ligne', color: 'bg-red-500', textColor: 'text-red-400' };
-    return { text: 'Jamais connecté', color: 'bg-yellow-500', textColor: 'text-yellow-400' };
+    return { text: 'Jamais connecté', color: 'bg-amber-500', textColor: 'text-amber-400' };
   };
 
   if (loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="relative w-20 h-20">
-            <i className="bi bi-wifi text-5xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#d97706] animate-[pulse_2s_ease-in-out_infinite]"></i>
-            <div className="absolute inset-0 border-2 border-[#d97706] rounded-full animate-[ripple_1.5s_linear_infinite]"></div>
-            <div className="absolute inset-0 border-2 border-[#d97706] rounded-full animate-[ripple_1.5s_linear_infinite_0.5s]"></div>
-          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
         </div>
       </Layout>
     );
@@ -162,120 +165,149 @@ export default function DashboardPage() {
 
   return (
     <Layout>
-      {/* Effets de fond */}
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fef3c7 50%, #fde68a 100%)' }}>
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 0% 0%, rgba(217,119,6,0.08) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(217,119,6,0.08) 0%, transparent 50%)' }} />
-        <div className="absolute inset-0" style={{ background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\" preserveAspectRatio=\"none\"><path d=\"M0 0 L100 100 M100 0 L0 100\" stroke=\"%23d97706\" stroke-width=\"0.5\" opacity=\"0.05\"/></svg>')", backgroundSize: '50px 50px' }} />
-      </div>
-
-      <div className="relative z-10">
+      <div className="relative z-10 max-w-6xl mx-auto">
+        
         {/* En-tête */}
-        <div className="mb-8 animate-[slideUp_0.5s_ease-out]">
-          <div className="inline-block bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-3 shadow-md">
-            <i className="bi bi-star-fill mr-1"></i> TABLEAU DE BORD
+        <div className="mb-8">
+          <div className="inline-block bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-3 shadow-md">
+            <Activity className="w-3 h-3 inline mr-1" /> Tableau de bord
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Bienvenue sur votre espace</h1>
-          <p className="text-gray-600 mt-2">Gérez vos routeurs, forfaits et suivez vos revenus</p>
         </div>
 
         {/* Actions rapides */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Link href="/routers/new" className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <Link href="/routers/new" className="group relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-6 border border-white/10 hover:border-amber-500/50 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-150 transition-transform duration-500"></div>
             <div className="relative z-10">
-              <div className="text-5xl mb-4 animate-[float_3s_ease-in-out_infinite]">📡</div>
-              <h3 className="text-xl font-semibold mb-2">Ajouter un routeur</h3>
-              <p className="text-gray-300">Configurez un nouveau point d'accès</p>
+              <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4">
+                <RouterIcon className="w-6 h-6 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Ajouter un routeur</h3>
+              <p className="text-gray-400 text-sm">Configurez un nouveau point d'accès</p>
             </div>
           </Link>
 
-          <Link href="/profiles/new" className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <Link href="/profiles/new" className="group relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-6 border border-white/10 hover:border-amber-500/50 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-150 transition-transform duration-500"></div>
             <div className="relative z-10">
-              <div className="text-5xl mb-4 animate-[float_3s_ease-in-out_infinite_0.2s]">🏷️</div>
-              <h3 className="text-xl font-semibold mb-2">Créer un forfait</h3>
-              <p className="text-gray-300">Définissez une nouvelle offre</p>
+              <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4">
+                <Tag className="w-6 h-6 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Créer un forfait</h3>
+              <p className="text-gray-400 text-sm">Définissez une nouvelle offre</p>
             </div>
           </Link>
 
-          <Link href="/wallet" className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16 group-hover:scale-150 transition-transform duration-500"></div>
+          <Link href="/wallet" className="group relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-6 border border-white/10 hover:border-amber-500/50 transition-all duration-300 transform hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-150 transition-transform duration-500"></div>
             <div className="relative z-10">
-              <div className="text-5xl mb-4 animate-[float_3s_ease-in-out_infinite_0.4s]">💰</div>
-              <h3 className="text-xl font-semibold mb-2">Mon portefeuille</h3>
-              <p className="text-gray-300">Consultez vos revenus</p>
+              <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-4">
+                <WalletIcon className="w-6 h-6 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Mon portefeuille</h3>
+              <p className="text-gray-400 text-sm">Consultez vos revenus</p>
             </div>
           </Link>
         </div>
 
         {/* Routeurs & Sessions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl shadow-xl animate-[slideUp_0.7s_ease-out]">
-            <div className="relative z-10">
-              <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2"><span className="text-2xl">📡</span> Routeurs récents</h2>
-                <Link href="/routers" className="text-[#d97706] hover:text-[#fbbf24] font-medium flex items-center gap-1">Voir tout <i className="bi bi-arrow-right"></i></Link>
+          
+          {/* Carte Routeurs */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl border border-white/10 flex flex-col">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+            
+            <div className="relative z-10 flex-1 flex flex-col">
+              <div className="px-6 py-5 border-b border-white/10 flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <RouterIcon className="w-5 h-5 text-amber-500" /> Routeurs récents
+                </h2>
+                <Link href="/routers" className="text-amber-500 hover:text-amber-400 text-sm font-medium flex items-center gap-1 transition-colors">
+                  Voir tout <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
-              <div className="divide-y divide-white/10">
+              
+              <div className="divide-y divide-white/5 flex-1">
                 {routers.slice(0, 5).map((router) => {
                   if (!router?.id) return null;
                   const status = getRouterStatus(router);
                   return (
-                    <div key={router.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold ${router.connection_status === 'online' ? 'bg-[#d97706]' : 'bg-gray-600'}`}>📡</div>
+                    <div key={router.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${router.connection_status === 'online' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/5 border-white/10 text-gray-400'}`}>
+                          <Wifi className="w-5 h-5" />
+                        </div>
                         <div>
-                          <p className="font-medium text-white">{router.name}</p>
-                          <p className="text-xs text-gray-400 flex items-center gap-2">
+                          <p className="font-medium text-white group-hover:text-amber-400 transition-colors">{router.name}</p>
+                          <p className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
                             <span className={`inline-block w-2 h-2 rounded-full ${status.color}`}></span>
                             <span className={status.textColor}>{status.text}</span>
                           </p>
                         </div>
                       </div>
-                      <Link href={`/routers/${router.id}`} className="text-[#d97706] font-medium text-sm hover:text-[#fbbf24]">Détails →</Link>
+                      <Link href={`/routers/${router.id}`} className="text-gray-500 hover:text-amber-500 transition-colors">
+                        <ArrowRight className="w-5 h-5" />
+                      </Link>
                     </div>
                   );
                 })}
-                {routers.length === 0 && <div className="px-6 py-12 text-center text-gray-400">Aucun routeur.</div>}
+                {routers.length === 0 && (
+                  <div className="px-6 py-12 text-center text-gray-500 flex flex-col items-center">
+                    <RouterIcon className="w-8 h-8 mb-2 opacity-50" />
+                    <p>Aucun routeur configuré.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="group relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-gray-800 rounded-2xl shadow-xl animate-[slideUp_0.8s_ease-out]">
-            <div className="relative z-10">
-              <div className="px-6 py-4 border-b border-white/10">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2"><span className="text-2xl">🕒</span> Sessions actives</h2>
+          {/* Carte Sessions */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl border border-white/10 flex flex-col">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+            
+            <div className="relative z-10 flex-1 flex flex-col">
+              <div className="px-6 py-5 border-b border-white/10 flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500" /> Sessions actives
+                </h2>
+                <Link href="/sessions" className="text-amber-500 hover:text-amber-400 text-sm font-medium flex items-center gap-1 transition-colors">
+                  Voir tout <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
-              <div className="divide-y divide-white/10">
+              
+              <div className="divide-y divide-white/5 flex-1">
                 {sessions.filter(s => s.state === 'ACTIVE').slice(0, 5).map((session) => (
                   <div key={session.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#d97706] rounded-lg flex items-center justify-center text-white"><i className="bi bi-wifi text-xs"></i></div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 text-gray-400">
+                        <Activity className="w-5 h-5" />
+                      </div>
                       <div>
-                        <p className="font-medium text-white">Session </p>
-                        <p className="text-xs text-gray-400">MAC: {session.mac_address || 'Inconnue'}</p>
+                        <p className="font-medium text-white">Appareil connecté</p>
+                        <p className="text-xs text-gray-400 mt-0.5">MAC: {session.mac_address || 'Inconnue'}</p>
                       </div>
                     </div>
-                    <span className="px-2 py-1 bg-green-600 text-white text-xs font-semibold rounded-full">Active</span>
+                    <span className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/20 text-xs font-semibold rounded-full">
+                      Active
+                    </span>
                   </div>
                 ))}
-                {sessions.filter(s => s.state === 'ACTIVE').length === 0 && <div className="px-6 py-12 text-center text-gray-400">Aucune session active.</div>}
+                {sessions.filter(s => s.state === 'ACTIVE').length === 0 && (
+                  <div className="px-6 py-12 text-center text-gray-500 flex flex-col items-center">
+                    <Activity className="w-8 h-8 mb-2 opacity-50" />
+                    <p>Aucune session active.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
         </div>
 
-        <div className="mt-8 text-center text-gray-500 text-xs">
-          <i className="bi bi-c-circle me-1"></i> 2026 MbeejFepal. Tous droits réservés.
+        <div className="mt-8 text-center text-gray-600 text-xs">
+          © 2026 MbeejFepal. Tous droits réservés.
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0%, 100% { transform: scale(1) translate(-50%, -50%); opacity: 1; } 50% { transform: scale(1.1) translate(-45%, -45%); opacity: 0.9; } }
-        @keyframes ripple { 0% { width: 20px; height: 20px; opacity: 0.5; } 100% { width: 80px; height: 80px; opacity: 0; } }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-      `}</style>
     </Layout>
   );
 }
