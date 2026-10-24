@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
-export default async function sitemap(): MetadataRoute.Sitemap {
-  // Si vos pages sont statiques :
+// Ajout de Promise<> autour du type de retour pour corriger l'erreur ts(1064)
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     {
       url: 'https://mbeejfepal.com',
@@ -9,6 +9,6 @@ export default async function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 1,
     },
-    // Ajoutez vos autres pages publiques ici (ex: /about, /contact)
+    // Vos autres pages si nécessaire
   ]
 }
