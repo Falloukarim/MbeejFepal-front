@@ -13,7 +13,7 @@ import {
   Wallet,
   QrCode,
   RefreshCw,
-  Router,
+  Router as RouterIcon,
   PlusCircle,
   Lock,
   Crown,
@@ -49,7 +49,6 @@ export default function SubscriptionPage() {
     fetchPlans();
   }, []);
 
-  // Sélection par défaut : plan Premium, sinon le premier
   useEffect(() => {
     if (plans.length && selectedId === null) {
       const premium = plans.find((p) => p.level === 'level1');
@@ -100,11 +99,13 @@ export default function SubscriptionPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-md mx-auto px-4 py-6 space-y-4 animate-pulse">
-          <div className="h-8 w-48 rounded-xl bg-white/10" />
-          <div className="h-12 rounded-2xl bg-white/10" />
-          <div className="h-44 rounded-[28px] bg-white/10" />
-          <div className="h-64 rounded-[28px] bg-white/10" />
+        <div className="pointer-events-none fixed inset-0 z-0 bg-[#0a0a0a]" />
+        <div className="relative z-10 max-w-md mx-auto px-4 py-6 space-y-4 animate-pulse">
+          <div className="h-3 w-24 rounded bg-neutral-800" />
+          <div className="h-8 w-48 rounded bg-neutral-800" />
+          <div className="h-12 rounded-xl bg-neutral-800 mt-4" />
+          <div className="h-44 rounded-2xl bg-neutral-800" />
+          <div className="h-64 rounded-2xl bg-neutral-800" />
         </div>
       </Layout>
     );
@@ -116,7 +117,6 @@ export default function SubscriptionPage() {
     gold: plan.level === 'level2',
   });
 
-  // Données dérivées du plan sélectionné
   const sel = selectedPlan;
   const selMeta = sel ? meta(sel) : null;
   const isCurrentPlan = !!(sel && status?.active && status.subscription?.plan.id === sel.id);
@@ -143,7 +143,7 @@ export default function SubscriptionPage() {
           sub: 'Partageables, limite d’appareils gérée par vous',
         },
         {
-          icon: Router,
+          icon: RouterIcon,
           title: `Jusqu’à ${sel.included_routers} routeurs inclus`,
           sub: 'Gérez tout votre réseau au même endroit',
         },
@@ -162,32 +162,38 @@ export default function SubscriptionPage() {
   return (
     <div className="pointer-events-none [&_[data-logout]]:pointer-events-auto [&_[data-logout]]:cursor-pointer">
       <Layout>
+        {/* Fond uni noir */}
+        <div className="pointer-events-none fixed inset-0 z-0 bg-[#0a0a0a]" />
+
         <style>{`
           @keyframes sub-slide-in {
-            from { opacity: 0; transform: translateY(14px) scale(0.98); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
           }
-          .sub-enter { animation: sub-slide-in .35s cubic-bezier(.2,.8,.2,1) both; }
-          .sub-row { animation: sub-slide-in .4s cubic-bezier(.2,.8,.2,1) both; }
+          .sub-enter { animation: sub-slide-in .3s cubic-bezier(.2,.8,.2,1) both; }
+          .sub-row { animation: sub-slide-in .35s cubic-bezier(.2,.8,.2,1) both; }
         `}</style>
 
-        <div className="pointer-events-auto max-w-md mx-auto px-4 pt-4 pb-28">
-          {/* Titre façon "large title" iOS */}
-          <header className="mb-5">
-            <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">
+        <div className="pointer-events-auto relative z-10 max-w-md mx-auto px-4 pt-4 pb-28">
+          {/* ===== HEADER (sobre, sans carré) ===== */}
+          <header className="mb-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-orange-500">
               Abonnement
+            </p>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Choisissez votre offre
             </h1>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="mt-1 text-sm text-neutral-500">
               {status?.active
                 ? `${status.router_count} routeur(s) configuré(s)`
-                : 'Choisissez l’offre adaptée à votre réseau'}
+                : 'Sélectionnez le plan adapté à votre réseau.'}
             </p>
           </header>
 
-          {/* Segmented control */}
+          {/* ===== SEGMENTED CONTROL ===== */}
           <div
             role="tablist"
-            className="relative grid bg-white/5 border border-white/10 rounded-2xl p-1 mb-5"
+            className="relative grid bg-[#111] border border-neutral-800 rounded-xl p-1 mb-6"
             style={{ gridTemplateColumns: `repeat(${plans.length || 1}, minmax(0, 1fr))` }}
           >
             {plans.map((plan) => {
@@ -201,18 +207,16 @@ export default function SubscriptionPage() {
                   aria-selected={active}
                   disabled={busy}
                   onClick={() => setSelectedId(plan.id)}
-                  className={`relative flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 ${
+                  className={`relative flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors active:scale-[0.98] ${
                     active
-                      ? m.gold
-                        ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
-                        : 'bg-white text-black shadow-lg'
-                      : 'text-gray-400'
+                      ? 'bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30'
+                      : 'text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
-                  {m.gold ? <Crown className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                  {m.gold ? <Crown className="w-3.5 h-3.5" /> : <Shield className="w-3.5 h-3.5" />}
                   {m.name}
                   {isCurrent && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 absolute top-2 right-2" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 absolute top-1.5 right-1.5" />
                   )}
                 </button>
               );
@@ -221,98 +225,97 @@ export default function SubscriptionPage() {
 
           {sel && selMeta && (
             <div key={sel.id} className="space-y-4">
-              {/* Carte héro : prix */}
+              {/* ===== HERO CARD (prix) — sans carré d'icône ===== */}
               <section
-                className={`sub-enter relative overflow-hidden rounded-[28px] p-6 border bg-gradient-to-br ${
-                  selMeta.gold
-                    ? 'from-amber-500/25 via-gray-900 to-black border-amber-500/40'
-                    : 'from-white/10 via-gray-900 to-black border-white/10'
+                className={`sub-enter relative overflow-hidden rounded-2xl border bg-[#111] p-5 ${
+                  selMeta.gold ? 'border-orange-500/25' : 'border-neutral-800/80'
                 }`}
               >
-                <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+                {selMeta.gold && (
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+                )}
 
                 <div className="relative flex items-start justify-between">
-                  <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${
-                      selMeta.gold
-                        ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                        : 'bg-white/5 border-white/10 text-gray-300'
-                    }`}
-                  >
-                    {selMeta.gold ? <Zap className="w-7 h-7" /> : <Shield className="w-7 h-7" />}
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      {selMeta.gold ? (
+                        <Zap className="w-3.5 h-3.5 text-orange-400" />
+                      ) : (
+                        <Shield className="w-3.5 h-3.5 text-neutral-400" />
+                      )}
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-neutral-500">
+                        {selMeta.name}
+                      </span>
+                    </div>
+                    <h2 className="mt-1 text-lg font-semibold text-white">{selMeta.desc}</h2>
                   </div>
 
                   <div className="flex flex-col items-end gap-1.5">
                     {selMeta.gold && (
-                      <span className="bg-amber-500 text-black text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full">
-                        RECOMMANDÉ
+                      <span className="rounded-md bg-orange-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-400 ring-1 ring-orange-500/30">
+                        Recommandé
                       </span>
                     )}
                     {isCurrentPlan && (
-                      <span className="bg-green-500/15 text-green-400 border border-green-500/30 text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full">
-                        VOTRE PLAN
+                      <span className="rounded-md bg-green-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400 ring-1 ring-green-500/30">
+                        Votre plan
                       </span>
                     )}
                   </div>
                 </div>
 
-                <h2 className="relative mt-5 text-2xl font-extrabold text-white">{selMeta.name}</h2>
-                <p className="relative text-sm text-gray-400">{selMeta.desc}</p>
-
-                <div className="relative mt-5 flex items-end gap-2">
-                  <span className="text-5xl font-black tracking-tight text-amber-400 tabular-nums">
+                <div className="relative mt-4 flex items-baseline gap-2">
+                  <span className="text-4xl font-bold tracking-tight text-orange-400 tabular-nums">
                     {price.toLocaleString()}
                   </span>
-                  <span className="pb-1.5 text-sm font-medium text-gray-400">FCFA / mois</span>
+                  <span className="text-xs font-medium text-neutral-500">FCFA / mois</span>
                 </div>
 
                 {price > sel.base_price && (
-                  <p className="relative mt-2 text-xs text-gray-400">
+                  <p className="relative mt-1.5 text-xs text-neutral-500">
                     Dont {(price - sel.base_price).toLocaleString()} FCFA pour vos routeurs supplémentaires
                   </p>
                 )}
               </section>
 
-              {/* Alerte upgrade */}
+              {/* ===== ALERTE UPGRADE ===== */}
               {isUpgrade && (
-                <div className="sub-enter flex items-start gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 text-xs text-amber-200">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
+                <div className="sub-enter flex items-start gap-2.5 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3 text-xs text-orange-200">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>
-                    Passez à Gold dès maintenant. La différence sera calculée au prorata et facturée le mois
-                    prochain.
+                    Passez à Gold dès maintenant. La différence sera calculée au prorata et facturée le
+                    mois prochain.
                   </span>
                 </div>
               )}
 
-              {/* Liste groupée façon réglages iOS */}
-              <section className="rounded-[28px] bg-white/5 border border-white/10 overflow-hidden">
-                <h3 className="px-5 pt-4 pb-2 text-[11px] font-bold uppercase tracking-widest text-gray-500">
+              {/* ===== FEATURES — liste épurée, sans carré d'icône ===== */}
+              <section className="rounded-2xl border border-neutral-800/80 bg-[#111] overflow-hidden">
+                <h3 className="px-5 pt-4 pb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-500">
                   Inclus dans l’offre
                 </h3>
-                <ul className="divide-y divide-white/5">
+                <ul className="divide-y divide-neutral-800/60">
                   {features.map((f, i) => {
                     const Icon = f.icon;
                     return (
                       <li
                         key={f.title}
-                        className="sub-row flex items-center gap-3.5 px-5 py-3.5"
-                        style={{ animationDelay: `${i * 60}ms` }}
+                        className="sub-row flex items-center gap-3 px-5 py-3"
+                        style={{ animationDelay: `${i * 50}ms` }}
                       >
-                        <div className="w-10 h-10 shrink-0 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 flex items-center justify-center">
-                          <Icon className="w-5 h-5" />
-                        </div>
+                        <Icon className="w-4 h-4 shrink-0 text-orange-400/70" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white leading-snug">{f.title}</p>
-                          <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.sub}</p>
+                          <p className="text-sm font-medium leading-snug text-white">{f.title}</p>
+                          <p className="mt-0.5 text-xs leading-snug text-neutral-500">{f.sub}</p>
                         </div>
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
+                        <Check className="w-4 h-4 shrink-0 text-green-400" />
                       </li>
                     );
                   })}
                 </ul>
               </section>
 
-              <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500">
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-neutral-600">
                 <Lock className="w-3 h-3" />
                 Paiement sécurisé via PayDunya
               </p>
@@ -320,35 +323,35 @@ export default function SubscriptionPage() {
           )}
         </div>
 
-        {/* Barre d'action collante, façon bottom bar d'appli */}
+        {/* ===== BOTTOM BAR COLLANTE ===== */}
         {sel && selMeta && (
-          <div className="pointer-events-auto sticky bottom-0 z-30 -mt-24 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 bg-gradient-to-t from-black via-black/90 to-transparent">
+          <div className="pointer-events-auto sticky bottom-0 z-30 -mt-24 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/95 to-transparent">
             <div className="max-w-md mx-auto">
               <button
                 onClick={() => handleChoose(sel)}
                 disabled={busy || isCurrentPlan}
-                className={`w-full h-14 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] shadow-xl ${
+                className={`w-full h-12 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.97] ${
                   isCurrentPlan
-                    ? 'bg-white/5 text-gray-500 border border-white/5 cursor-not-allowed shadow-none'
+                    ? 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800 cursor-not-allowed'
                     : selMeta.gold
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-amber-600/30'
-                    : 'bg-white text-black'
+                    ? 'bg-[#d97706] text-white shadow-lg shadow-amber-600/20 hover:bg-[#b45309]'
+                    : 'bg-white text-black hover:bg-neutral-100'
                 } ${busy && processingId !== sel.id ? 'opacity-50' : ''}`}
               >
                 {processingId === sel.id ? (
                   <>
-                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Traitement...
                   </>
                 ) : isCurrentPlan ? (
                   'Plan actuel'
                 ) : isUpgrade ? (
                   <>
-                    Mettre à niveau vers Gold <ArrowRight className="w-5 h-5" />
+                    Mettre à niveau vers Gold <ArrowRight className="w-4 h-4" />
                   </>
                 ) : (
                   <>
-                    Souscrire à {selMeta.name} · {price.toLocaleString()} FCFA <ArrowRight className="w-5 h-5" />
+                    Souscrire à {selMeta.name} · {price.toLocaleString()} FCFA <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
