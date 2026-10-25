@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout';
-import { getMySessions, getRouters, getProfiles, type Router, type HotspotProfile } from '@/lib/api';
+import { getMySessions, getRouters, getProfiles } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface Session {
@@ -18,22 +18,67 @@ interface Session {
   expires_at: string;
 }
 
+type Filter = 'all' | 'active' | 'past';
+
+const STATE_STYLES: Record<string, { label: string; color: string; dot: string }> = {
+  ACTIVE:     { label: 'Active',   color: 'text-green-400',  dot: 'bg-green-400'  },
+  CREATED:    { label: 'Créée',    color: 'text-amber-400',  dot: 'bg-amber-400'  },
+  EXPIRED:    { label: 'Expirée',  color: 'text-neutral-500', dot: 'bg-neutral-600' },
+  TERMINATED: { label: 'Terminée', color: 'text-red-400',    dot: 'bg-red-400'    },
+};
+
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse rounded-2xl border border-neutral-800/80 bg-[#111] p-5">
+      <div className="mb-4 flex justify-between">
+        <div className="h-3 w-20 rounded bg-neutral-800" />
+        <div className="h-3 w-10 rounded bg-neutral-800" />
+      </div>
+      <div className="mb-2 h-5 w-2/3 rounded bg-neutral-800" />
+      <div className="mb-5 h-3 w-1/3 rounded bg-neutral-800" />
+      <div className="space-y-2">
+        <div className="h-3 rounded bg-neutral-800" />
+        <div className="h-3 rounded bg-neutral-800" />
+        <div className="h-3 w-2/3 rounded bg-neutral-800" />
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+        {label}
+      </span>
+      <span className={`truncate text-right text-sm ${mono ? 'font-mono text-neutral-200' : 'text-neutral-200'}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [routers, setRouters] = useState<Record<number, string>>({});
   const [profiles, setProfiles] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Charger les sessions et les routeurs
         const [sessionsData, routersData] = await Promise.all([
           getMySessions(),
           getRouters().catch(() => []),
         ]);
 
-        // 2. Créer la map des routeurs
         const routerMap: Record<number, string> = {};
         (routersData as any[]).forEach((r) => {
           const id = r.ID || r.id;
@@ -41,8 +86,7 @@ export default function SessionsPage() {
         });
         setRouters(routerMap);
 
-        // 3. Adapter les sessions
-        const adaptedSessions = (sessionsData as any[])
+        const adaptedSessions: Session[] = (sessionsData as any[])
           .map((item: any) => ({
             id: item.ID || item.id,
             zone_code: item.ZoneCode || null,
@@ -56,28 +100,26 @@ export default function SessionsPage() {
             expires_at: item.ExpiresAt,
           }))
           .filter((session) => session.id);
-        
+
         setSessions(adaptedSessions || []);
 
-        // 4. Charger les profils routeur par routeur (public)
-        const uniqueRouterIds = [...new Set(adaptedSessions.map((s: any) => s.router_id))];
+        const uniqueRouterIds = [...new Set(adaptedSessions.map((s) => s.router_id))];
         const profileMap: Record<number, string> = {};
-        
+
         await Promise.all(
           uniqueRouterIds.map(async (routerId) => {
             try {
-              const profiles = await getProfiles(routerId);
-              (profiles as any[]).forEach((p) => {
+              const list = await getProfiles(routerId);
+              (list as any[]).forEach((p) => {
                 const id = p.ID || p.id;
                 if (id) profileMap[id] = p.ProfileName || p.profile_name || `Forfait #${id}`;
               });
-            } catch (e) {
-              // On ignore si un routeur n'a pas de profils
+            } catch {
+              // Routeur sans profils : on ignore
             }
           })
         );
         setProfiles(profileMap);
-
       } catch (error) {
         toast.error('Erreur lors du chargement des sessions');
         setSessions([]);
@@ -87,203 +129,239 @@ export default function SessionsPage() {
     };
 
     fetchData();
-  }, []); // Le [] signifie "exécuter une seule fois au montage"
+  }, []);
 
-  const formatDate = (dateString: string | null | undefined, format: 'full' | 'short' | 'time' = 'full') => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Date invalide';
-      switch (format) {
-        case 'short':
-          return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        case 'time':
-          return date.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        default:
-          return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      }
-    } catch {
-      return 'Date invalide';
-    }
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Date invalide';
+    return date.toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
-  // Convertir les minutes en "Xh Ym"
   const formatRemainingTime = (expiresAt: string | null | undefined) => {
     if (!expiresAt) return 'Inconnu';
-    try {
-      const expiryDate = new Date(expiresAt);
-      if (isNaN(expiryDate.getTime())) return 'Inconnu';
-      
-      const now = new Date();
-      const diffMs = expiryDate.getTime() - now.getTime();
-      const diffMin = Math.floor(diffMs / 60000);
-      
-      if (diffMin <= 0) return 'Expiré';
-      if (diffMin < 60) return `${diffMin} min`;
-
-      const hours = Math.floor(diffMin / 60);
-      const minutes = diffMin % 60;
-
-      if (minutes === 0) return `${hours}h`;
-      return `${hours}h ${minutes}m`;
-    } catch {
-      return 'Inconnu';
+    const expiry = new Date(expiresAt).getTime();
+    if (isNaN(expiry)) return 'Inconnu';
+    const diffMin = Math.floor((expiry - now) / 60000);
+    if (diffMin <= 0) return 'Expiré';
+    if (diffMin < 60) return `${diffMin} min`;
+    if (diffMin < 1440) {
+      const h = Math.floor(diffMin / 60);
+      const m = diffMin % 60;
+      return m === 0 ? `${h} h` : `${h} h ${m} min`;
     }
+    const d = Math.floor(diffMin / 1440);
+    const h = Math.floor((diffMin % 1440) / 60);
+    return h === 0 ? `${d} j` : `${d} j ${h} h`;
   };
 
-  const getStateBadge = (state: string) => {
-    switch (state) {
-      case 'ACTIVE':
-        return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Active</span>;
-      case 'CREATED':
-        return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">Créée</span>;
-      case 'EXPIRED':
-        return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Expirée</span>;
-      case 'TERMINATED':
-        return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400 border border-red-500/30">Terminée</span>;
-      default:
-        return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">{state}</span>;
-    }
+  const remainingPercent = (s: Session) => {
+    const start = new Date(s.created_at).getTime();
+    const end = new Date(s.expires_at).getTime();
+    if (isNaN(start) || isNaN(end) || end <= start) return 0;
+    return Math.max(0, Math.min(100, ((end - now) / (end - start)) * 100));
   };
 
-  const formatUserId = (userId: string) => {
-    if (!userId) return '-';
-    return userId.substring(0, 6) + '...';
-  };
+  const stats = useMemo(() => {
+    const active = sessions.filter((s) => s.state === 'ACTIVE').length;
+    return { total: sessions.length, active, past: sessions.length - active };
+  }, [sessions]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="relative w-20 h-20">
-            <i className="bi bi-wifi text-5xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#d97706] animate-[pulse_2s_ease-in-out_infinite]"></i>
-            <div className="absolute inset-0 border-2 border-[#d97706] rounded-full animate-[ripple_1.5s_linear_infinite]"></div>
-            <div className="absolute inset-0 border-2 border-[#d97706] rounded-full animate-[ripple_1.5s_linear_infinite_0.5s]"></div>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const visible = useMemo(() => {
+    if (filter === 'active') return sessions.filter((s) => s.state === 'ACTIVE');
+    if (filter === 'past') return sessions.filter((s) => s.state !== 'ACTIVE');
+    return sessions;
+  }, [sessions, filter]);
+
+  const filters: { key: Filter; label: string; count: number }[] = [
+    { key: 'all', label: 'Toutes', count: stats.total },
+    { key: 'active', label: 'Actives', count: stats.active },
+    { key: 'past', label: 'Passées', count: stats.past },
+  ];
 
   return (
     <Layout>
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #fef3c7 50%, #fde68a 100%)' }}>
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 0% 0%, rgba(217,119,6,0.08) 0%, transparent 50%), radial-gradient(circle at 100% 100%, rgba(217,119,6,0.08) 0%, transparent 50%)' }} />
-      </div>
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[#0a0a0a]" />
 
-      <div className="relative z-10">
-        <div className="mb-8 animate-[slideUp_0.5s_ease-out]">
-          <div className="inline-block bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-3 shadow-md">
-            <i className="bi bi-star-fill mr-1"></i> SESSIONS
+      <div className="relative z-10 mx-auto w-full max-w-5xl pb-16">
+        {/* ===== HEADER (sans carré) ===== */}
+        <header className="sticky top-0 z-30 -mx-4 mb-6 border-b border-neutral-800/60 bg-[#0a0a0a]/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-2">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-orange-500">
+                Historique
+              </p>
+              <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                Sessions
+              </h1>
+            </div>
+            {!loading && (
+              <p className="shrink-0 pb-1 text-xs text-neutral-500">
+                {sessions.length} session{sessions.length > 1 ? 's' : ''}
+              </p>
+            )}
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Historique des sessions</h1>
-          <p className="text-gray-600 mt-2">Consultez toutes vos connexions</p>
-        </div>
+        </header>
 
-        <div className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl overflow-hidden relative animate-[slideUp_0.6s_ease-out]">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-          <div className="relative z-10 px-6 py-5 border-b border-white/10 bg-white/5">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <i className="bi bi-clock-history text-[#d97706]"></i>
-              Liste des sessions
-            </h2>
+        {/* ===== STATISTIQUES (sobres, sans couleur criarde) ===== */}
+        {!loading && sessions.length > 0 && (
+          <div className="mb-6 grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total',   value: stats.total,  color: 'text-white' },
+              { label: 'Actives', value: stats.active, color: 'text-green-400' },
+              { label: 'Passées', value: stats.past,   color: 'text-neutral-400' },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl border border-neutral-800/80 bg-[#111] px-4 py-3"
+              >
+                <div className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</div>
+                <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                  {s.label}
+                </div>
+              </div>
+            ))}
           </div>
+        )}
 
-          {sessions.length > 0 ? (
-            <div className="relative z-10 divide-y divide-white/10">
-              {sessions.map((session, index) => (
-                <div 
-                  key={session.id} 
-                  className="px-6 py-5 hover:bg-white/5 transition-colors animate-[slideUp_0.5s_ease-out]"
-                  style={{ animationDelay: `${index * 50}ms` }}
+        {/* ===== FILTRES (chips discrets) ===== */}
+        {!loading && sessions.length > 0 && (
+          <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                  filter === f.key
+                    ? 'bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30'
+                    : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
+                }`}
+              >
+                {f.label}
+                <span
+                  className={`ml-2 text-xs ${
+                    filter === f.key ? 'text-orange-400/70' : 'text-neutral-600'
+                  }`}
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-[#d97706] rounded-xl flex items-center justify-center text-white text-xl flex-shrink-0 shadow-lg">
-                          <i className="bi bi-wifi"></i>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <span className="text-xs text-gray-400">{formatDate(session.created_at)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {f.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
-                        <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
-                          <i className="bi bi-router text-[#d97706] text-xs"></i>
-                          <span className="text-gray-400 text-xs">Routeur:</span>
-                          <span className="text-white text-xs font-medium">
-                            {routers[session.router_id] || `#${session.router_id}`}
-                          </span>
-                        </div>
+        {/* ===== LISTE ===== */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {loading && [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
 
-                        <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
-                          <i className="bi bi-tag text-[#d97706] text-xs"></i>
-                          <span className="text-gray-400 text-xs">Forfait:</span>
-                          <span className="text-white text-xs font-medium">
-                            {profiles[session.hotspot_id] || `#${session.hotspot_id}`}
-                          </span>
-                        </div>
+          {!loading &&
+            visible.map((session) => {
+              const st = STATE_STYLES[session.state] ?? {
+                label: session.state,
+                color: 'text-neutral-400',
+                dot: 'bg-neutral-500',
+              };
+              const isActive = session.state === 'ACTIVE';
+              const percent = remainingPercent(session);
 
-                        <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/5">
-                          <i className="bi bi-hash text-[#d97706] text-xs"></i>
-                          <span className="text-gray-400 text-xs">MAC:</span>
-                          <span className="text-white font-mono text-xs">{session.mac_address}</span>
-                        </div>
-                      </div>
+              return (
+                <article
+                  key={session.id}
+                  className={`group relative overflow-hidden rounded-2xl border bg-[#111] transition-colors ${
+                    isActive ? 'border-orange-500/20' : 'border-neutral-800/80'
+                  }`}
+                >
+                  {/* Fin liseré supérieur uniquement pour les sessions actives */}
+                  {isActive && (
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+                  )}
 
-                      <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <i className="bi bi-calendar-plus"></i>
-                          <span>Création: {formatDate(session.created_at)}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <i className="bi bi-calendar-x"></i>
-                          <span>Expiration: {formatDate(session.expires_at)}</span>
-                        </div>
-                      </div>
+                  <div className="p-5">
+                    {/* Statut + identifiant */}
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${st.dot} ${
+                            isActive ? 'animate-pulse' : ''
+                          }`}
+                        />
+                        <span className={st.color}>{st.label}</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-neutral-600">
+                        #{session.id}
+                      </span>
                     </div>
 
-                    {session.state === 'ACTIVE' && (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-[#d97706]/20 rounded-xl border border-[#d97706]/30 lg:self-center">
-                        <i className="bi bi-hourglass-split text-[#d97706] animate-spin"></i>
-                        <span className="text-sm text-[#d97706] font-bold whitespace-nowrap">
-                          {formatRemainingTime(session.expires_at)} restantes
-                        </span>
+                    {/* Titre & sous-titre — SANS carré d'icône */}
+                    <h3 className="truncate text-base font-semibold text-white">
+                      {routers[session.router_id] || `Routeur #${session.router_id}`}
+                    </h3>
+                    <p className="mt-0.5 truncate text-sm text-neutral-400">
+                      {profiles[session.hotspot_id] || `Forfait #${session.hotspot_id}`}
+                    </p>
+
+                    {/* Temps restant — sessions actives uniquement */}
+                    {isActive && (
+                      <div className="mt-4">
+                        <div className="mb-1.5 flex items-center justify-between text-xs">
+                          <span className="text-neutral-500">Temps restant</span>
+                          <span className="font-semibold tabular-nums text-orange-400">
+                            {formatRemainingTime(session.expires_at)}
+                          </span>
+                        </div>
+                        <div className="h-1 overflow-hidden rounded-full bg-neutral-800">
+                          <div
+                            className="h-full rounded-full bg-orange-500 transition-all duration-500"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
                       </div>
                     )}
+
+                    {/* Détails — liste épurée */}
+                    <div className="mt-4 divide-y divide-neutral-800/60 border-t border-neutral-800/60">
+                      <DetailRow label="MAC" value={session.mac_address} mono />
+                      {session.ip_address && (
+                        <DetailRow label="IP" value={session.ip_address} mono />
+                      )}
+                      <DetailRow label="Début" value={formatDate(session.created_at)} />
+                      <DetailRow label="Fin" value={formatDate(session.expires_at)} />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="relative z-10 px-6 py-16 text-center">
-              <div className="w-24 h-24 mx-auto mb-6 bg-white/5 rounded-full flex items-center justify-center border border-white/10">
-                <i className="bi bi-clock-history text-5xl text-[#d97706] opacity-50"></i>
+                </article>
+              );
+            })}
+
+          {/* États vides */}
+          {!loading && sessions.length === 0 && (
+            <div className="col-span-full flex flex-col items-center rounded-2xl border border-neutral-800/80 bg-[#111] px-6 py-16 text-center">
+              <div className="mb-4 text-3xl text-neutral-700">
+                <i className="bi bi-clock-history"></i>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">Aucune session pour le moment</h3>
-              <p className="text-gray-400 max-w-md mx-auto">
-                Les sessions apparaîtront ici lorsque des clients se connecteront à vos hotspots
+              <h3 className="mb-1 text-base font-semibold text-white">Aucune session</h3>
+              <p className="max-w-xs text-sm text-neutral-500">
+                Les sessions apparaîtront ici dès qu'un client se connectera à vos hotspots.
               </p>
+            </div>
+          )}
+
+          {!loading && sessions.length > 0 && visible.length === 0 && (
+            <div className="col-span-full rounded-2xl border border-neutral-800/80 bg-[#111] py-12 text-center text-sm text-neutral-500">
+              Aucune session dans cette catégorie
             </div>
           )}
         </div>
 
-        <div className="mt-8 text-center text-gray-500 text-xs">
-          <i className="bi bi-c-circle me-1"></i>
-          2026 MbeejFepal. Tous droits réservés.
+        <div className="mt-10 text-center text-[11px] text-neutral-600">
+          © 2026 MbeejFepal
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0%, 100% { transform: scale(1) translate(-50%, -50%); opacity: 1; } 50% { transform: scale(1.1) translate(-45%, -45%); opacity: 0.9; } }
-        @keyframes ripple { 0% { width: 20px; height: 20px; opacity: 0.5; } 100% { width: 80px; height: 80px; opacity: 0; } }
-      `}</style>
     </Layout>
   );
 }

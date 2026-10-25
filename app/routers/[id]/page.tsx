@@ -7,7 +7,7 @@ import { getRouter, getProfiles, updateRouter, type Router, type HotspotProfile 
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
-import { Save, ShieldAlert, Copy, Check, Upload, X } from 'lucide-react';
+import { Save, ShieldAlert, Copy, Check } from 'lucide-react';
 
 type RouterForm = {
   name: string;
@@ -58,7 +58,6 @@ export default function RouterDetailPage() {
         setRouterData(adaptedRouter);
         setProfiles(Array.isArray(profilesRes) ? profilesRes : []);
 
-        // ✅ Récupération des champs de personnalisation (snake_case ou PascalCase)
         const portalName =
           (routerRes as any).portal_name ||
           (routerRes as any).PortalName ||
@@ -97,7 +96,6 @@ export default function RouterDetailPage() {
     fetchData();
   }, [routerId, router, reset]);
 
-  // ✅ Upload du logo en Base64 (max 200 Ko)
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -176,14 +174,24 @@ export default function RouterDetailPage() {
 
   return (
     <Layout>
-      <div className="relative z-10 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+      {/* ===== HEADER — CARTE SOMBRE DÉGRADÉE (style Login) ===== */}
+      <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-black border border-white/10 p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+
+        <div className="relative z-10">
           <div className="inline-block bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-3 shadow-md">
             DÉTAILS ROUTEUR
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">{routerData.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{routerData.name}</h1>
+          <p className="text-gray-400 text-sm mt-2">
+            Gérez les paramètres, la personnalisation et les forfaits de ce routeur.
+          </p>
         </div>
-        <Link href="/routers" className="group flex items-center gap-2 px-4 py-2 bg-white/80 border border-gray-200 rounded-xl text-[#d97706] hover:bg-[#d97706] hover:text-white transition-all">
+        <Link
+          href="/routers"
+          className="relative z-10 group flex items-center gap-2 px-4 py-2 bg-white/10 border border-white/10 rounded-xl text-amber-400 hover:bg-[#d97706] hover:text-white hover:border-[#d97706] transition-all"
+        >
           ← Retour
         </Link>
       </div>
@@ -204,7 +212,6 @@ export default function RouterDetailPage() {
             </h2>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Nom du routeur */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Nom du routeur</label>
                 <input
@@ -214,7 +221,6 @@ export default function RouterDetailPage() {
                 />
               </div>
 
-              {/* Quota journalier */}
               <div className="pt-6 border-t border-white/10">
                 <div className="flex items-center gap-2 mb-2">
                   <ShieldAlert className="w-5 h-5 text-amber-500" />
@@ -237,7 +243,6 @@ export default function RouterDetailPage() {
                 </p>
               </div>
 
-              {/* ✅ SECTION PERSONNALISATION */}
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -248,7 +253,6 @@ export default function RouterDetailPage() {
               </button>
             </form>
 
-            {/* Infos de configuration */}
             <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-gray-400 text-sm">Statut</span>
@@ -259,8 +263,6 @@ export default function RouterDetailPage() {
               <div className="flex justify-between items-center py-2 border-b border-white/10">
                 <span className="text-gray-400 text-sm">Dernière vue</span>
                 <span className="text-gray-200 text-sm">{routerData.last_seen ? formatDate(routerData.last_seen) : 'Jamais'}</span>
-              </div>
-              <div className="flex justify-between items-center py-2">
               </div>
             </div>
 

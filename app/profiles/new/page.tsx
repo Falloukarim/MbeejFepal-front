@@ -6,6 +6,7 @@ import Layout from '@/components/layout/Layout';
 import { useForm } from 'react-hook-form';
 import { createProfile, getRouters, type Router } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { Sparkles } from 'lucide-react';
 
 type ProfileForm = {
   router_id: number;
@@ -27,7 +28,7 @@ function NewProfileContent() {
   const [errors, setErrors] = useState<Partial<Record<keyof ProfileForm, string>>>({});
   const [selectedRouter, setSelectedRouter] = useState<Router | null>(null);
 
-  const { register, handleSubmit, setValue, formState: { errors: formErrors } } = useForm<ProfileForm>({
+  const { register, handleSubmit, setValue } = useForm<ProfileForm>({
     defaultValues: {
       router_id: 0,
       profile_name: '',
@@ -117,13 +118,27 @@ function NewProfileContent() {
 
   return (
     <Layout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Nouveau forfait</h1>
-        <p className="text-gray-600 mt-2">
-          {selectedRouter ? `Créer un forfait pour : ${selectedRouter.name}` : 'Créez une nouvelle offre de connexion'}
-        </p>
+      {/* ===== HEADER — CARTE SOMBRE DÉGRADÉE (style Login) ===== */}
+      <div className="mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-black border border-white/10 p-6 sm:p-8 shadow-xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#d97706] via-[#b45309] to-[#92400e] text-white px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase mb-3 shadow-md">
+            <Sparkles className="w-3.5 h-3.5" />
+            Nouveau forfait
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            {selectedRouter ? `Forfait pour ${selectedRouter.name}` : 'Créer une offre de connexion'}
+          </h1>
+          <p className="text-gray-400 text-sm mt-2">
+            {selectedRouter
+              ? `Configurez un nouveau forfait pour le routeur "${selectedRouter.name}".`
+              : 'Remplissez le formulaire ci-dessous pour créer un nouveau forfait.'}
+          </p>
+        </div>
       </div>
 
+      {/* ===== FORMULAIRE ===== */}
       <div className="max-w-2xl relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-xl p-8 border border-white/10">
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
         
@@ -219,6 +234,26 @@ function NewProfileContent() {
                 <option value="EUR">Euro (EUR)</option>
                 <option value="USD">Dollar (USD)</option>
               </select>
+            </div>
+
+            {/* ✅ LIMITE DE DÉBIT (Vitesse) — même options que la page de modification */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Limite de débit (Vitesse)</label>
+              <select
+                {...register('bandwidth_limit')}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition [&>option]:bg-gray-900"
+              >
+                <option value="">Illimité (Partagé)</option>
+                <option value="512k">512 Kbps (Basique)</option>
+                <option value="1M">1 Mbps (Standard)</option>
+                <option value="2M">2 Mbps (Confortable)</option>
+                <option value="5M">5 Mbps (Rapide)</option>
+                <option value="10M">10 Mbps (Premium / Gaming)</option>
+                <option value="20M">20 Mbps (Ultra Fibre)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                La vitesse maximale allouée. Symétrique (ex: 2M = 2 Mbps en téléchargement et envoi).
+              </p>
             </div>
 
             <button
