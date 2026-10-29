@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -48,9 +49,19 @@ export default function LoginPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-2 px-3 relative overflow-hidden bg-[#f8fafc]">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(200,200,210,0.3)_0%,_transparent_60%),_radial-gradient(ellipse_at_bottom_left,_rgba(180,180,200,0.3)_0%,_transparent_60%)]" />
+    <div className="min-h-screen flex items-center justify-center py-2 px-3 relative overflow-hidden bg-[#0a0a0a]">
+      {/* Image de fond */}
+      <Image
+        src="/videos/wifi-zone-poster.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      {/* Voile sombre + lueur ambrée */}
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(217,119,6,0.25)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(217,119,6,0.12)_0%,transparent_50%)]" />
 
       <div className="w-full max-w-sm relative z-10 my-auto">
         <motion.div
@@ -218,7 +229,7 @@ export default function LoginPage() {
           </div>
         </motion.div>
 
-        <div className="mt-4 text-center text-gray-500 text-[10px] font-medium">
+        <div className="mt-4 text-center text-gray-400 text-[10px] font-medium">
           © 2026 MbeejFepal
         </div>
       </div>

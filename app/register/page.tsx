@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -30,6 +31,10 @@ type RegisterForm = {
   password: string;
   confirmPassword: string;
 };
+
+// Champs sombres (color-scheme dark évite le fond blanc natif du navigateur)
+const inputClass =
+  'w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 text-white placeholder:text-gray-500 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm [color-scheme:dark]';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -81,19 +86,29 @@ export default function RegisterPage() {
   if (!mounted) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-2 px-3 relative overflow-hidden bg-[#f8fafc]">
-      {/* Background Pattern — identique à login */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(200,200,210,0.3)_0%,_transparent_60%),_radial-gradient(ellipse_at_bottom_left,_rgba(180,180,200,0.3)_0%,_transparent_60%)]" />
+    <div className="min-h-screen flex items-center justify-center py-2 px-3 relative overflow-hidden bg-[#0a0a0a]">
+      {/* Image de fond */}
+      <Image
+        src="/videos/wifi-zone-poster.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      {/* Voile sombre + lueur ambrée */}
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(217,119,6,0.25)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(217,119,6,0.12)_0%,transparent_50%)]" />
 
-      <div className="w-full max-w-md relative z-10 my-auto">
+      <div className="w-full max-w-md md:max-w-2xl relative z-10 my-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="rounded-3xl shadow-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-black border border-white/10"
         >
-          {/* Header — identique à login */}
-          <div className="relative p-6 text-center overflow-hidden border-b border-white/10">
+          {/* Header — compact sur ordinateur */}
+          <div className="relative p-6 md:py-4 md:px-8 text-center md:text-left overflow-hidden border-b border-white/10 md:flex md:items-center md:gap-4">
             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
 
             <motion.div
@@ -110,36 +125,38 @@ export default function RegisterPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-              className="relative w-16 h-16 mx-auto mb-3"
+              className="relative w-16 h-16 md:w-12 md:h-12 mx-auto md:mx-0 mb-3 md:mb-0 shrink-0"
             >
               <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-pulse" />
-              <div className="absolute inset-1.5 bg-gradient-to-br from-amber-500 to-amber-700 rounded-full flex items-center justify-center shadow-2xl">
-                <Wifi className="w-8 h-8 text-white" strokeWidth={2.5} />
+              <div className="absolute inset-1.5 md:inset-1 bg-gradient-to-br from-amber-500 to-amber-700 rounded-full flex items-center justify-center shadow-2xl">
+                <Wifi className="w-8 h-8 md:w-6 md:h-6 text-white" strokeWidth={2.5} />
               </div>
             </motion.div>
 
-            <motion.h2
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-2xl font-bold text-white mb-0.5 tracking-tight"
-            >
-              MbeejFepal
-            </motion.h2>
+            <div>
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-2xl font-bold text-white mb-0.5 tracking-tight"
+              >
+                MbeejFepal
+              </motion.h2>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-gray-400 text-xs font-medium"
-            >
-              Créez votre compte pour commencer
-            </motion.p>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-gray-400 text-xs font-medium"
+              >
+                Créez votre compte pour commencer
+              </motion.p>
+            </div>
           </div>
 
           {/* Form — dark theme */}
-          <div className="p-6">
-            <form className="space-y-3" onSubmit={handleSubmit(onSubmit)}>
+          <div className="p-6 md:px-8 md:py-5">
+            <form className="space-y-3 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-4 md:gap-y-3" onSubmit={handleSubmit(onSubmit)}>
               {/* Nom */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -154,38 +171,13 @@ export default function RegisterPage() {
                   <input
                     {...formRegister('name')}
                     type="text"
-                    className="w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
+                    className={inputClass}
                     placeholder="Mbacké Balla"
                   />
                 </div>
                 {errors.name && (
                   <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
                     <Lock className="w-3 h-3" /> {errors.name.message}
-                  </p>
-                )}
-              </motion.div>
-
-              {/* Email */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <label className="block text-xs font-semibold text-gray-300 mb-1">Email</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <input
-                    {...formRegister('email')}
-                    type="email"
-                    className="w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
-                    placeholder="exemple@email.com"
-                  />
-                </div>
-                {errors.email && (
-                  <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> {errors.email.message}
                   </p>
                 )}
               </motion.div>
@@ -204,13 +196,39 @@ export default function RegisterPage() {
                   <input
                     {...formRegister('phone')}
                     type="tel"
-                    className="w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
+                    className={inputClass}
                     placeholder="77 123 45 67"
                   />
                 </div>
                 {errors.phone && (
                   <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
                     <Lock className="w-3 h-3" /> {errors.phone.message}
+                  </p>
+                )}
+              </motion.div>
+
+              {/* Email */}
+              <motion.div
+                className="md:col-span-2"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <label className="block text-xs font-semibold text-gray-300 mb-1">Email</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <input
+                    {...formRegister('email')}
+                    type="email"
+                    className={inputClass}
+                    placeholder="exemple@email.com"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                    <Lock className="w-3 h-3" /> {errors.email.message}
                   </p>
                 )}
               </motion.div>
@@ -229,7 +247,7 @@ export default function RegisterPage() {
                   <input
                     {...formRegister('password')}
                     type="password"
-                    className="w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
+                    className={inputClass}
                     placeholder="••••••••"
                   />
                 </div>
@@ -256,7 +274,7 @@ export default function RegisterPage() {
                   <input
                     {...formRegister('confirmPassword')}
                     type="password"
-                    className="w-full pl-9 pr-3 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
+                    className={inputClass}
                     placeholder="••••••••"
                   />
                 </div>
@@ -269,6 +287,7 @@ export default function RegisterPage() {
 
               {/* Bouton */}
               <motion.div
+                className="md:col-span-2"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8 }}
@@ -276,7 +295,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-[#d97706] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#b45309] transition-all shadow-lg disabled:opacity-50 flex justify-center mt-2"
+                  className="w-full bg-[#d97706] text-white font-bold py-3 px-4 rounded-xl hover:bg-[#b45309] transition-all shadow-lg disabled:opacity-50 flex justify-center mt-2 md:mt-1"
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -296,7 +315,7 @@ export default function RegisterPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.9 }}
-                className="text-center pt-2"
+                className="text-center pt-2 md:pt-0 md:col-span-2"
               >
                 <p className="text-xs text-gray-400">
                   Déjà un compte ?{' '}
@@ -315,7 +334,7 @@ export default function RegisterPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 1 }}
-              className="mt-6 pt-4 border-t border-white/10"
+              className="mt-6 pt-4 md:mt-4 md:pt-3 border-t border-white/10"
             >
               <div className="grid grid-cols-3 gap-1">
                 {[
@@ -333,7 +352,7 @@ export default function RegisterPage() {
           </div>
         </motion.div>
 
-        <div className="mt-4 text-center text-gray-500 text-[10px] font-medium">
+        <div className="mt-4 md:mt-2 text-center text-gray-400 text-[10px] font-medium">
           © 2026 MbeejFepal
         </div>
       </div>
