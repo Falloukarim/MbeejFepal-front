@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getSubscriptionPlans, chooseSubscription, upgradeToLevel2, SubscriptionPlan } from '@/lib/api';
 import { useSubscription } from '../context/SubscriptionContext';
-import { Check, Shield, Zap, AlertCircle, ArrowRight, Wallet, QrCode, RefreshCw, Router, PlusCircle, Lock, Crown, Calendar } from 'lucide-react';
+import { Check, Shield, Zap, AlertCircle, ArrowRight, Wallet, QrCode, RefreshCw, Router, PlusCircle, Lock, Crown, Calendar, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Layout from '@/components/layout/Layout';
 import { format } from 'date-fns';
@@ -14,7 +14,7 @@ function SubscriptionContent() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
-  const [wantLoadBalancing, setWantLoadBalancing] = useState(false); // ✅ State pour la case à cocher
+  const [wantLoadBalancing, setWantLoadBalancing] = useState(false);
   const { status, refreshStatus } = useSubscription();
   
   const searchParams = useSearchParams();
@@ -45,7 +45,7 @@ function SubscriptionContent() {
   const handleChoose = async (plan: SubscriptionPlan) => {
     setProcessingId(plan.id);
 
-       if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
+    if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
       try {
         await upgradeToLevel2();
         await refreshStatus();
@@ -59,7 +59,6 @@ function SubscriptionContent() {
     }
 
     try {
-      // ✅ On passe wantLoadBalancing à l'API
       const res = await chooseSubscription(plan.id, wantLoadBalancing);
       toast.success('Redirection vers le paiement...');
       window.location.href = res.paydunya_url;
@@ -92,8 +91,9 @@ function SubscriptionContent() {
   const isGold = currentSub?.plan?.level === 'level2';
   const isActive = status?.active;
   const blockNavigation = !isActive;
+  
   return (
-      <div className={blockNavigation ? "pointer-events-none [&_[data-logout]]:pointer-events-auto [&_[data-logout]]:cursor-pointer" : ""}>
+    <div className={blockNavigation ? "pointer-events-none [&_[data-logout]]:pointer-events-auto [&_[data-logout]]:cursor-pointer" : ""}>
       <Layout>
         <div className={blockNavigation ? "pointer-events-auto max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8" : "max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8"}>
           
@@ -128,7 +128,7 @@ function SubscriptionContent() {
                 <div className="relative z-10 mt-8 pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
                    <div>
                      <p className="text-sm text-gray-400">Prix mensuel</p>
-                     <p className="text-xl font-bold text-white">{currentSub.monthly_amount.toLocaleString()} FCFA</p>
+                     <p className="text-xl font-bold text-white">{currentSub.monthly_amount?.toLocaleString() || 0} FCFA</p>
                    </div>
                    <div>
                      <p className="text-sm text-gray-400">Routeurs inclus</p>
@@ -158,21 +158,37 @@ function SubscriptionContent() {
             </div>
           )}
 
-          {/* CAS 2 : EXPIRÉ OU NOUVEAU */}
+          {/* CAS 2 : EXPIRÉ, EN ATTENTE OU NOUVEAU */}
           {(!isActive || !currentSub) && (
             <>
               {currentSub ? (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold text-red-400 mb-1">Votre abonnement a expiré</p>
-                    <p className="text-sm text-red-200/80">
-                      Votre plan {currentSub.plan?.name || 'précédent'} a expiré le {currentSub.expires_at ? format(new Date(currentSub.expires_at), 'dd MMMM yyyy', { locale: fr }) : 'récemment'}. 
-                      Veuillez le renouveler ci-dessous.
-                    </p>
+                currentSub.status === 'pending' ? (
+                  // ✅ CAS : PAIEMENT EN ATTENTE
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3">
+                    <Clock className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-blue-400 mb-1">Paiement en attente</p>
+                      <p className="text-sm text-blue-200/80">
+                        Votre commande pour le plan {currentSub.plan?.name} est en attente de validation. 
+                        Si vous n'avez pas finalisé le paiement, veuillez le refaire ci-dessous.
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // ✅ CAS : ABONNEMENT EXPIRÉ
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-bold text-red-400 mb-1">Votre abonnement a expiré</p>
+                      <p className="text-sm text-red-200/80">
+                        Votre plan {currentSub.plan?.name || 'précédent'} a expiré le {currentSub.expires_at ? format(new Date(currentSub.expires_at), 'dd MMMM yyyy', { locale: fr }) : 'récemment'}. 
+                        Veuillez le renouveler ci-dessous.
+                      </p>
+                    </div>
+                  </div>
+                )
               ) : (
+                // ✅ CAS : PAS D'ABONNEMENT DU TOUT
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-8 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-200">
@@ -193,7 +209,6 @@ function SubscriptionContent() {
                     const planDesc = isLevel1 ? 'Pour démarrer (1 routeur)' : 'Pour les grands réseaux (dès 5 routeurs)';
                     const basePrice = calculatePrice(plan);
                     
-                    // ✅ Calcul du prix à afficher sur le bouton
                     const totalButtonPrice = basePrice + (isLevel1 && wantLoadBalancing ? 3000 : 0);
 
                     return (
@@ -229,7 +244,6 @@ function SubscriptionContent() {
                             <span className="text-gray-400 font-medium"> FCFA / mois</span>
                           </div>
 
-                          {/* ✅ LISTE DES FONCTIONNALITÉS CORRIGÉE */}
                           <ul className="space-y-4 mb-8">
                             <li className="flex items-start gap-3 text-gray-200 text-sm">
                               <Router className="w-5 h-5 text-green-500 shrink-0" />
@@ -266,7 +280,6 @@ function SubscriptionContent() {
                             )}
                           </ul>
 
-                          {/* ✅ CHECKBOX POUR LE LOAD BALANCING (PREMIUM UNIQUEMENT) */}
                           {isLevel1 && (
                             <label className="flex items-center gap-3 mb-6 cursor-pointer p-4 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
                               <input 
