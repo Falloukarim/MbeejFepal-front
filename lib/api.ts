@@ -345,14 +345,13 @@ export const getSubscriptionStatus = async () => {
   return response.data;
 };
 
-export const chooseSubscription = async (planId: number) => {
+export const chooseSubscription = async (planId: number, wantLoadBalancing: boolean = false) => {
   const response = await api.post<{ subscription: Subscription; invoice: any; paydunya_url: string }>(
     '/api/subscription/choose',
-    { plan_id: planId }
+    { plan_id: planId, want_load_balancing: wantLoadBalancing }
   );
   return response.data;
 };
-
 export const upgradeToLevel2 = async () => {
   await api.post('/api/subscription/upgrade');
 };

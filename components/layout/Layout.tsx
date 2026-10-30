@@ -89,6 +89,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <Link 
               href="/subscription" 
+              data-logout
               className="mt-2 sm:mt-0 sm:ml-4 bg-black text-amber-500 px-4 py-1.5 rounded-lg hover:bg-gray-900 transition-colors whitespace-nowrap"
             >
               Payer maintenant
