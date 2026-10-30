@@ -45,11 +45,11 @@ function SubscriptionContent() {
   const handleChoose = async (plan: SubscriptionPlan) => {
     setProcessingId(plan.id);
 
-    if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
+       if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
       try {
         await upgradeToLevel2();
-        toast.success('Passage au Niveau Gold effectué !');
         await refreshStatus();
+        toast.success('Passage au Niveau Gold effectué !');
       } catch (error) {
         toast.error("Erreur lors de l'upgrade");
       } finally {
