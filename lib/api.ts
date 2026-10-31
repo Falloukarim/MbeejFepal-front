@@ -415,3 +415,57 @@ export const getProfileStats = async () => {
 };
 
 export default api;
+// ==========================================
+// PPPOE (Abonnements Résidentiels)
+// ==========================================
+export interface PPPProfile {
+  id: number;
+  router_id: number;
+  name: string;
+  rate_limit: string;
+  price: number;
+}
+
+export interface PPPUser {
+  id: number;
+  router_id: number;
+  profile_id: number;
+  username: string;
+  password: string;
+  status: 'active' | 'suspended' | 'expired';
+  expires_at: string;
+  profile_name?: string;
+  rate_limit?: string;
+}
+
+export const getPPPProfiles = async (routerId: number) => {
+  const response = await api.get<PPPProfile[]>(`/api/pppoe/profiles?router_id=${routerId}`);
+  return response.data;
+};
+
+export const createPPPProfile = async (data: { router_id: number; name: string; rate_limit: string; price: number }) => {
+  const response = await api.post<PPPProfile>('/api/pppoe/profiles', data);
+  return response.data;
+};
+
+export const getPPPUsers = async (routerId: number) => {
+  const response = await api.get<PPPUser[]>(`/api/pppoe/users?router_id=${routerId}`);
+  return response.data;
+};
+
+export const createPPPUser = async (data: { router_id: number; profile_id: number; duration_days: number }) => {
+  const response = await api.post<PPPUser>('/api/pppoe/users', data);
+  return response.data;
+};
+
+export const suspendPPPUser = async (userId: number) => {
+  await api.put(`/api/pppoe/users/${userId}/suspend`);
+};
+
+export const activatePPPUser = async (userId: number) => {
+  await api.put(`/api/pppoe/users/${userId}/activate`);
+};
+
+export const deletePPPUser = async (userId: number) => {
+  await api.delete(`/api/pppoe/users/${userId}`);
+};

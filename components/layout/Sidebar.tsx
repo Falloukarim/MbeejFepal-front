@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User } from '@/lib/api';
+import { Network } from 'lucide-react';
 
 interface SidebarProps {
   user: User | null;
@@ -81,6 +82,13 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
         </svg>
       )
     },
+    { 
+    name: 'Clients PPPoE', 
+    href: '/pppoe', 
+    icon: (isActive: boolean) => (
+      <Network className={`w-5 h-5 transition-colors ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-amber-500'}`} />
+    )
+  },
     { 
       name: 'Sessions', 
       href: '/sessions', 
