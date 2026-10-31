@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { Network, Settings, UserPlus, X, Copy, Check, Power, PowerOff, Trash2, Tag } from 'lucide-react';
+import { Network, Settings, UserPlus, X, Copy, Check, Power, PowerOff, Trash2, Tag, Wifi } from 'lucide-react';
 
 // --- Interfaces ---
 interface Router { id: number; name: string; }
@@ -14,7 +14,8 @@ interface Profile { id: number; name: string; rate_limit: string; price: number;
 interface User { id: number; name: string; phone: string; username: string; password: string; status: string; expires_at: string; profile_name: string; rate_limit: string; }
 
 export default function PPPoEPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'settings'>('users');
+  // ✅ Ajout de l'onglet 'profiles'
+  const [activeTab, setActiveTab] = useState<'users' | 'profiles' | 'settings'>('users');
   
   const [routers, setRouters] = useState<Router[]>([]);
   const [selectedRouter, setSelectedRouter] = useState<number | null>(null);
@@ -30,16 +31,16 @@ export default function PPPoEPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Formulaires ---
-  // Profil
   const [profName, setProfName] = useState('');
-  const [profSpeed, setProfSpeed] = useState('');
+  const [profDownload, setProfDownload] = useState('10');
+  const [profUpload, setProfUpload] = useState('10');
   const [profPrice, setProfPrice] = useState('');
   const [profDuration, setProfDuration] = useState('30');
-  // Abonné
+
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<number | ''>('');
-  // Config Réseau
+  
   const [cfgPort, setCfgPort] = useState('ether5');
   const [cfgService, setCfgService] = useState('MBEEJ_PPPOE');
   const [cfgPool, setCfgPool] = useState('pool_pppoe');
@@ -47,7 +48,6 @@ export default function PPPoEPage() {
   const [cfgGateway, setCfgGateway] = useState('10.50.0.1/16');
   const [cfgDns, setCfgDns] = useState('1.1.1.1,8.8.8.8');
 
-  // Chargement initial
   useEffect(() => {
     api.get('/routers').then(res => {
       const adapted = res.data.map((r: any) => ({ id: r.ID || r.id, name: r.Name || r.name }));
@@ -56,7 +56,6 @@ export default function PPPoEPage() {
     });
   }, []);
 
-  // Recharger si on change de routeur
   useEffect(() => {
     if (!selectedRouter) return;
     fetchData();
@@ -69,7 +68,6 @@ export default function PPPoEPage() {
         api.get(`/api/pppoe/profiles?router_id=${selectedRouter}`),
         api.get(`/api/pppoe/users?router_id=${selectedRouter}`)
       ]);
-      // ✅ Sécurité pour éviter le .map sur null
       setProfiles(Array.isArray(pRes.data) ? pRes.data : []);
       setUsers(Array.isArray(uRes.data) ? uRes.data : []);
     } catch (e) {
@@ -79,20 +77,45 @@ export default function PPPoEPage() {
     }
   };
 
-  // Actions
   const handleCreateProfile = async (e: React.FormEvent) => {
-    e.preventDefault(); setIsSubmitting(true);
+    e.preventDefault();
+
+    const download = Number(profDownload);
+    const upload = Number(profUpload);
+
+    if (!Number.isFinite(download) || download <= 0 || !Number.isFinite(upload) || upload <= 0) {
+      toast.error('Les débits Download et Upload doivent être supérieurs à 0.');
+      return;
+    }
+
+    if (!selectedRouter) {
+      toast.error('Veuillez sélectionner un routeur.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       await api.post('/api/pppoe/profiles', {
-        router_id: selectedRouter, name: profName, rate_limit: profSpeed, price: Number(profPrice), duration_days: Number(profDuration)
+        router_id: selectedRouter,
+        name: profName,
+        // MikroTik PPP rate-limit : upload en premier, download en second.
+        rate_limit: `${upload}M/${download}M`,
+        price: Number(profPrice),
+        duration_days: Number(profDuration)
       });
-      toast.success('Forfait créé'); 
-      setIsProfileModalOpen(false); 
-      setProfName(''); setProfSpeed(''); setProfPrice('');
+      toast.success('Forfait créé');
+      setIsProfileModalOpen(false);
+      setProfName('');
+      setProfDownload('10');
+      setProfUpload('10');
+      setProfPrice('');
+      setProfDuration('30');
       fetchData();
-    } catch (e:any) { 
-      toast.error(e.response?.data || 'Erreur forfait'); 
-    } finally { setIsSubmitting(false); }
+    } catch (e: any) {
+      toast.error(e.response?.data || 'Erreur forfait');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -106,12 +129,7 @@ export default function PPPoEPage() {
       setClientName(''); setClientPhone(''); setSelectedProfile('');
       fetchData();
     } catch (e:any) { 
-      // Gestion du timeout du routeur
-      if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
-        toast.error('Le routeur MikroTik ne répond pas (Timeout). Vérifiez le VPN.');
-      } else {
-        toast.error(e.response?.data || 'Erreur abonné'); 
-      }
+      toast.error(e.response?.data || 'Erreur abonné'); 
     } finally { setIsSubmitting(false); }
   };
 
@@ -121,7 +139,7 @@ export default function PPPoEPage() {
       await api.post(`/api/pppoe/setup/${selectedRouter}`, {
         port: cfgPort, service_name: cfgService, pool_name: cfgPool, client_range: cfgRange, gateway_ip: cfgGateway, dns: cfgDns
       });
-      toast.success('Infrastructure réseau configurée avec succès !');
+      toast.success('Infrastructure réseau configurée !');
     } catch (e: any) { 
       toast.error(e.response?.data || 'Erreur de configuration'); 
     } finally { setIsSubmitting(false); }
@@ -147,7 +165,6 @@ export default function PPPoEPage() {
 
   return (
     <Layout>
-      {/* En-tête */}
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-xs font-semibold mb-3">
@@ -155,13 +172,15 @@ export default function PPPoEPage() {
           </div>
           <h1 className="text-3xl font-bold text-white">Gestion PPPoE</h1>
         </div>
+        
+        {/* ✅ MISE À JOUR DES ONGLETS */}
         <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
           <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}>Abonnés</button>
+          <button onClick={() => setActiveTab('profiles')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'profiles' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}>Forfaits</button>
           <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'settings' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}>Configuration</button>
         </div>
       </div>
 
-      {/* Sélecteur Routeur */}
       <div className="mb-6 bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4">
         <label className="text-gray-300 text-sm">Routeur :</label>
         <select value={selectedRouter || ''} onChange={e => setSelectedRouter(Number(e.target.value))} className="bg-gray-900 border border-white/10 text-white rounded-xl px-4 py-2">
@@ -169,13 +188,10 @@ export default function PPPoEPage() {
         </select>
       </div>
 
-      {/* CONTENU : ONGLET ABONNÉS */}
+      {/* ONGLET : ABONNÉS */}
       {activeTab === 'users' && (
         <>
           <div className="flex gap-2 mb-6">
-             <button onClick={() => setIsProfileModalOpen(true)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all">
-                <Tag className="w-4 h-4" /> + Nouveau Forfait
-             </button>
              <button onClick={() => setIsUserModalOpen(true)} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-black px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg">
                 <UserPlus className="w-4 h-4" /> + Nouvel Abonné
              </button>
@@ -217,7 +233,40 @@ export default function PPPoEPage() {
         </>
       )}
 
-      {/* CONTENU : ONGLET CONFIGURATION (AstaTech Style) */}
+      {/* ✅ NOUVEL ONGLET : FORFAITS */}
+      {activeTab === 'profiles' && (
+        <>
+          <div className="flex gap-2 mb-6">
+             <button onClick={() => setIsProfileModalOpen(true)} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all">
+                <Tag className="w-4 h-4" /> + Nouveau Forfait
+             </button>
+          </div>
+          
+          <div className="bg-gray-900 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-white/5 text-gray-400 border-b border-white/10">
+                <tr><th className="px-6 py-4">Nom du forfait</th><th className="px-6 py-4">Débit</th><th className="px-6 py-4">Prix</th><th className="px-6 py-4">Durée</th></tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-gray-300">
+                {profiles.length === 0 ? (
+                  <tr><td colSpan={4} className="text-center py-10 text-gray-500">Aucun forfait configuré.</td></tr>
+                ) : (
+                  profiles.map(p => (
+                    <tr key={p.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-6 py-4 font-bold text-white">{p.name}</td>
+                      <td className="px-6 py-4 text-amber-500 font-medium flex items-center gap-2"><Wifi className="w-4 h-4"/> {p.rate_limit}</td>
+                      <td className="px-6 py-4 font-bold">{p.price.toLocaleString()} FCFA</td>
+                      <td className="px-6 py-4">{p.duration_days} jours</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ONGLET : CONFIGURATION */}
       {activeTab === 'settings' && (
         <div className="bg-gradient-to-br from-gray-900 to-black border border-white/10 rounded-[32px] p-8 max-w-2xl shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
@@ -256,17 +305,99 @@ export default function PPPoEPage() {
         </div>
       )}
 
-      {/* MODAL : AJOUTER UN FORFAIT */}
+      {/* MODALS */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-white/10 rounded-[24px] shadow-2xl w-full max-w-md p-6 relative">
             <button onClick={() => setIsProfileModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X className="w-6 h-6"/></button>
             <h2 className="text-xl font-bold text-white mb-6">Nouveau Forfait PPPoE</h2>
             <form onSubmit={handleCreateProfile} className="space-y-4">
-              <input placeholder="Nom (ex: Fibre 10M)" required value={profName} onChange={e => setProfName(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
-              <input placeholder="Débit (ex: 10M/10M)" required value={profSpeed} onChange={e => setProfSpeed(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
-              <input type="number" placeholder="Prix (FCFA)" required value={profPrice} onChange={e => setProfPrice(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
-              <input type="number" placeholder="Durée (jours)" required value={profDuration} onChange={e => setProfDuration(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block">Nom du forfait</label>
+                <input
+                  placeholder="Ex : Fibre 20M"
+                  required
+                  value={profName}
+                  onChange={e => setProfName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block">Débits Internet (Mbps)</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Download</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="any"
+                      placeholder="20"
+                      required
+                      value={profDownload}
+                      onChange={e => setProfDownload(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Téléchargement</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block">Upload</label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="any"
+                      placeholder="10"
+                      required
+                      value={profUpload}
+                      onChange={e => setProfUpload(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">Envoi</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">
+                    Rate limit MikroTik généré
+                  </p>
+                  <p className="text-lg font-bold text-amber-500">
+                    {profUpload || '0'}M/{profDownload || '0'}M
+                  </p>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Format : Upload / Download
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Prix (FCFA)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Prix"
+                    required
+                    value={profPrice}
+                    onChange={e => setProfPrice(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Durée (jours)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="30"
+                    required
+                    value={profDuration}
+                    onChange={e => setProfDuration(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
               <button type="submit" disabled={isSubmitting} className="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2 disabled:opacity-50">
                 {isSubmitting ? 'Création...' : 'Créer le Forfait'}
               </button>
@@ -275,7 +406,6 @@ export default function PPPoEPage() {
         </div>
       )}
 
-      {/* MODAL : AJOUTER UN ABONNÉ */}
       {isUserModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-white/10 rounded-[24px] shadow-2xl w-full max-w-md p-6 relative">
