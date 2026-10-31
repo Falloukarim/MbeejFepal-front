@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { Network, Settings, UserPlus, X, Copy, Check, Power, PowerOff, Trash2, Tag, Wifi } from 'lucide-react';
+import { Network, Settings, UserPlus, X, Copy, Check, Power, PowerOff, Trash2, Tag, Wifi, MessageCircle } from 'lucide-react';
 
 // --- Interfaces ---
 interface Router { id: number; name: string; }
@@ -14,7 +14,6 @@ interface Profile { id: number; name: string; rate_limit: string; price: number;
 interface User { id: number; name: string; phone: string; username: string; password: string; status: string; expires_at: string; profile_name: string; rate_limit: string; }
 
 export default function PPPoEPage() {
-  // ✅ Ajout de l'onglet 'profiles'
   const [activeTab, setActiveTab] = useState<'users' | 'profiles' | 'settings'>('users');
   
   const [routers, setRouters] = useState<Router[]>([]);
@@ -79,7 +78,6 @@ export default function PPPoEPage() {
 
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const download = Number(profDownload);
     const upload = Number(profUpload);
 
@@ -98,18 +96,13 @@ export default function PPPoEPage() {
       await api.post('/api/pppoe/profiles', {
         router_id: selectedRouter,
         name: profName,
-        // MikroTik PPP rate-limit : upload en premier, download en second.
         rate_limit: `${upload}M/${download}M`,
         price: Number(profPrice),
         duration_days: Number(profDuration)
       });
       toast.success('Forfait créé');
       setIsProfileModalOpen(false);
-      setProfName('');
-      setProfDownload('10');
-      setProfUpload('10');
-      setProfPrice('');
-      setProfDuration('30');
+      setProfName(''); setProfDownload('10'); setProfUpload('10'); setProfPrice(''); setProfDuration('30');
       fetchData();
     } catch (e: any) {
       toast.error(e.response?.data || 'Erreur forfait');
@@ -163,8 +156,23 @@ export default function PPPoEPage() {
     toast.success('Identifiants copiés !');
   };
 
+  // ✅ NOUVELLE FONCTION : Génère le lien WhatsApp
+  const getWhatsAppLink = (phone: string, username: string, password: string) => {
+    if (!phone) return '#';
+    // Nettoie le numéro (enlève les espaces, le +, le 00, et le 0 initial)
+    let cleanPhone = phone.replace(/\D/g, ''); 
+    if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    // Ajoute l'indicatif du Sénégal (221) si le numéro fait 9 chiffres
+    if (cleanPhone.length === 9) cleanPhone = '221' + cleanPhone;
+
+    const message = `Bonjour ${username},\n\nVoici vos identifiants de connexion Internet :\n👤 Utilisateur : ${username}\n🔑 Mot de passe : ${password}\n\nMerci de votre confiance !`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  };
+
   return (
     <Layout>
+      {/* En-tête */}
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-xs font-semibold mb-3">
@@ -173,7 +181,6 @@ export default function PPPoEPage() {
           <h1 className="text-3xl font-bold text-white">Gestion PPPoE</h1>
         </div>
         
-        {/* ✅ MISE À JOUR DES ONGLETS */}
         <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
           <button onClick={() => setActiveTab('users')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}>Abonnés</button>
           <button onClick={() => setActiveTab('profiles')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'profiles' ? 'bg-amber-500 text-black' : 'text-gray-400'}`}>Forfaits</button>
@@ -181,6 +188,7 @@ export default function PPPoEPage() {
         </div>
       </div>
 
+      {/* Sélecteur Routeur */}
       <div className="mb-6 bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4">
         <label className="text-gray-300 text-sm">Routeur :</label>
         <select value={selectedRouter || ''} onChange={e => setSelectedRouter(Number(e.target.value))} className="bg-gray-900 border border-white/10 text-white rounded-xl px-4 py-2">
@@ -219,10 +227,27 @@ export default function PPPoEPage() {
                         <div className="text-amber-500 text-xs">{u.rate_limit}</div>
                       </td>
                       <td className="px-6 py-4">{format(new Date(u.expires_at), 'dd MMM yyyy', { locale: fr })}</td>
-                      <td className="px-6 py-4 flex gap-3 items-center">
-                        <button onClick={() => copyCreds(u)} className="p-2 bg-white/5 rounded-lg hover:text-white transition-all">{copiedId === u.id ? <Check className="w-4 h-4 text-green-500"/> : <Copy className="w-4 h-4"/>}</button>
-                        <button onClick={() => toggleStatus(u)} className={`p-2 rounded-lg bg-white/5 transition-all ${u.status === 'active' ? 'text-red-400 hover:bg-red-500/10' : 'text-green-400 hover:bg-green-500/10'}`}>{u.status === 'active' ? <PowerOff className="w-4 h-4"/> : <Power className="w-4 h-4"/>}</button>
-                        <button onClick={() => deleteUser(u.id)} className="p-2 bg-white/5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-all"><Trash2 className="w-4 h-4"/></button>
+                      <td className="px-6 py-4 flex gap-2 items-center">
+                        {/* ✅ BOUTON WHATSAPP */}
+                        <a 
+                          href={getWhatsAppLink(u.phone, u.username, u.password)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 bg-white/5 rounded-lg text-green-500 hover:text-green-400 hover:bg-green-500/10 transition-all"
+                          title="Envoyer les identifiants via WhatsApp"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </a>
+
+                        <button onClick={() => copyCreds(u)} className="p-2 bg-white/5 rounded-lg hover:text-white transition-all" title="Copier">
+                          {copiedId === u.id ? <Check className="w-4 h-4 text-green-500"/> : <Copy className="w-4 h-4"/>}
+                        </button>
+                        <button onClick={() => toggleStatus(u)} className={`p-2 rounded-lg bg-white/5 transition-all ${u.status === 'active' ? 'text-red-400 hover:bg-red-500/10' : 'text-green-400 hover:bg-green-500/10'}`} title={u.status === 'active' ? 'Suspendre' : 'Activer'}>
+                          {u.status === 'active' ? <PowerOff className="w-4 h-4"/> : <Power className="w-4 h-4"/>}
+                        </button>
+                        <button onClick={() => deleteUser(u.id)} className="p-2 bg-white/5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-500/10 transition-all" title="Supprimer">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -233,7 +258,7 @@ export default function PPPoEPage() {
         </>
       )}
 
-      {/* ✅ NOUVEL ONGLET : FORFAITS */}
+      {/* ONGLET : FORFAITS */}
       {activeTab === 'profiles' && (
         <>
           <div className="flex gap-2 mb-6">
@@ -314,13 +339,7 @@ export default function PPPoEPage() {
             <form onSubmit={handleCreateProfile} className="space-y-4">
               <div>
                 <label className="text-xs text-gray-400 mb-2 block">Nom du forfait</label>
-                <input
-                  placeholder="Ex : Fibre 20M"
-                  required
-                  value={profName}
-                  onChange={e => setProfName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-                />
+                <input placeholder="Ex : Fibre 20M" required value={profName} onChange={e => setProfName(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
               </div>
 
               <div>
@@ -328,74 +347,28 @@ export default function PPPoEPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Download</label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="any"
-                      placeholder="20"
-                      required
-                      value={profDownload}
-                      onChange={e => setProfDownload(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                    <p className="text-[10px] text-gray-500 mt-1">Téléchargement</p>
+                    <input type="number" min="1" step="any" placeholder="20" required value={profDownload} onChange={e => setProfDownload(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
                   </div>
-
                   <div>
                     <label className="text-xs text-gray-400 mb-1 block">Upload</label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="any"
-                      placeholder="10"
-                      required
-                      value={profUpload}
-                      onChange={e => setProfUpload(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                    <p className="text-[10px] text-gray-500 mt-1">Envoi</p>
+                    <input type="number" min="1" step="any" placeholder="10" required value={profUpload} onChange={e => setProfUpload(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
                   </div>
                 </div>
-
                 <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">
-                    Rate limit MikroTik généré
-                  </p>
-                  <p className="text-lg font-bold text-amber-500">
-                    {profUpload || '0'}M/{profDownload || '0'}M
-                  </p>
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Format : Upload / Download
-                  </p>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Rate limit MikroTik généré</p>
+                  <p className="text-lg font-bold text-amber-500">{profUpload || '0'}M/{profDownload || '0'}M</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Format : Upload / Download</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Prix (FCFA)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="Prix"
-                    required
-                    value={profPrice}
-                    onChange={e => setProfPrice(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+                  <input type="number" min="0" step="1" placeholder="Prix" required value={profPrice} onChange={e => setProfPrice(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Durée (jours)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="30"
-                    required
-                    value={profDuration}
-                    onChange={e => setProfDuration(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500"
-                  />
+                  <input type="number" min="1" step="1" placeholder="30" required value={profDuration} onChange={e => setProfDuration(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
               </div>
               <button type="submit" disabled={isSubmitting} className="w-full bg-amber-500 text-black font-bold py-3 rounded-xl mt-2 disabled:opacity-50">
