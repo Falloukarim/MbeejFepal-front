@@ -229,14 +229,6 @@ export default function HomePage() {
         }`}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform">
-              <Wifi className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
-            </div>
-            <span className="hidden sm:block text-xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
-              MbeejFepal
-            </span>
-          </Link>
 
           <div className="flex items-center gap-3 sm:gap-6">
             <Link

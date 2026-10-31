@@ -228,16 +228,26 @@ export default function PPPoEPage() {
                       </td>
                       <td className="px-6 py-4">{format(new Date(u.expires_at), 'dd MMM yyyy', { locale: fr })}</td>
                       <td className="px-6 py-4 flex gap-2 items-center">
-                        {/* ✅ BOUTON WHATSAPP */}
-                        <a 
-                          href={getWhatsAppLink(u.phone, u.username, u.password)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 bg-white/5 rounded-lg text-green-500 hover:text-green-400 hover:bg-green-500/10 transition-all"
-                          title="Envoyer les identifiants via WhatsApp"
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                        </a>
+                       {/* ✅ BOUTON WHATSAPP SÉCURISÉ */}
+{u.phone && u.phone.trim() !== '' ? (
+  <a
+    href={getWhatsAppLink(u.phone, u.username, u.password)}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="p-2 bg-white/5 rounded-lg text-green-500 hover:text-green-400 hover:bg-green-500/10 transition-all"
+    title="Envoyer les identifiants via WhatsApp"
+  >
+    <MessageCircle className="w-4 h-4" />
+  </a>
+) : (
+  <button
+    disabled
+    className="p-2 bg-white/5 rounded-lg text-gray-600 cursor-not-allowed opacity-50"
+    title="Numéro de téléphone manquant"
+  >
+    <MessageCircle className="w-4 h-4" />
+  </button>
+)}
 
                         <button onClick={() => copyCreds(u)} className="p-2 bg-white/5 rounded-lg hover:text-white transition-all" title="Copier">
                           {copiedId === u.id ? <Check className="w-4 h-4 text-green-500"/> : <Copy className="w-4 h-4"/>}
