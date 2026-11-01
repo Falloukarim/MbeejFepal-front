@@ -12,15 +12,18 @@ import {
   Check, 
   Edit, 
   Trash2, 
-  ArrowRight,
-  MoreVertical,
   Tag
 } from 'lucide-react';
+import ConfirmModal from '@/components/ui/ConfirmModal'; // ✅ NOUVEL IMPORT
 
 export default function RoutersPage() {
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<number | null>(null);
+  
+  // ✅ NOUVEAUX STATES POUR LE MODAL
+  const [routerToDelete, setRouterToDelete] = useState<Router | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadRouters();
@@ -67,15 +70,24 @@ export default function RoutersPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce routeur ? Cette action est irréversible.')) return;
-    
+  // ✅ MODIFIÉ : Ouvre le modal au lieu du confirm()
+  const requestDelete = (router: Router) => {
+    setRouterToDelete(router);
+  };
+
+  // ✅ NOUVEAU : Suppression confirmée
+  const confirmDelete = async () => {
+    if (!routerToDelete) return;
+    setIsDeleting(true);
     try {
-      await deleteRouter(id);
+      await deleteRouter(routerToDelete.id!);
       toast.success('Routeur supprimé avec succès');
       loadRouters();
+      setRouterToDelete(null); // Ferme le modal
     } catch (error) {
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -89,7 +101,7 @@ export default function RoutersPage() {
       await navigator.clipboard.writeText(command);
       setTimeout(() => {
         setCopyingId(null);
-        toast.success('Commande copiée !', { icon: '📋' });
+        toast.success('Commande copiée !');
       }, 500);
     } catch {
       setCopyingId(null);
@@ -132,7 +144,7 @@ export default function RoutersPage() {
     <Layout>
       <div className="space-y-6 max-w-7xl mx-auto">
         
-        {/* En-tête corrigé */}
+        {/* En-tête */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm mb-3">
@@ -173,7 +185,7 @@ export default function RoutersPage() {
           <div className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl border border-white/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
-            {/* VUE DESKTOP (TABLEAU) */}
+            {/* VUE DESKTOP */}
             <div className="hidden lg:block overflow-x-auto relative z-10">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -238,7 +250,7 @@ export default function RoutersPage() {
                             <Link href={`/routers/${router.id}`} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Modifier">
                               <Edit className="w-4 h-4" />
                             </Link>
-                            <button onClick={() => handleDelete(router.id!)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Supprimer">
+                            <button onClick={() => requestDelete(router)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Supprimer">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -250,13 +262,12 @@ export default function RoutersPage() {
               </table>
             </div>
 
-            {/* VUE MOBILE (CARTES) - Standard Application Mobile */}
+            {/* VUE MOBILE */}
             <div className="lg:hidden flex flex-col divide-y divide-white/5 relative z-10">
               {routers.map((router) => {
                 const status = getStatusBadge(router);
                 return (
                   <div key={router.id} className="p-5 hover:bg-white/5 transition-colors">
-                    {/* Ligne 1 : Nom & Statut */}
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${router.connection_status === 'online' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/5 border-white/10 text-gray-400'}`}>
@@ -275,7 +286,6 @@ export default function RoutersPage() {
                       </div>
                     </div>
 
-                    {/* Ligne 2 : Info & Actions Rapides */}
                     <div className="space-y-3 bg-white/5 rounded-xl p-3 border border-white/5 mb-4">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-400">Dernière vue</span>
@@ -299,7 +309,6 @@ export default function RoutersPage() {
                       </div>
                     </div>
 
-                    {/* Ligne 3 : Actions Principales */}
                     <div className="flex gap-2">
                       <Link 
                         href={`/routers/${router.id}/profiles`} 
@@ -314,7 +323,7 @@ export default function RoutersPage() {
                         <Edit className="w-4 h-4" /> Modifier
                       </Link>
                       <button 
-                        onClick={() => handleDelete(router.id!)} 
+                        onClick={() => requestDelete(router)} 
                         className="w-12 flex items-center justify-center bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/10"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -328,6 +337,17 @@ export default function RoutersPage() {
           </div>
         )}
       </div>
+
+      {/* ✅ LE MODAL DE CONFIRMATION */}
+      <ConfirmModal
+        isOpen={routerToDelete !== null}
+        title="Supprimer ce routeur ?"
+        message={`Êtes-vous sûr de vouloir supprimer le routeur "${routerToDelete?.name}" ? Cette action est irréversible et déconnectera tous les clients.`}
+        confirmText="Oui, supprimer"
+        onConfirm={confirmDelete}
+        onCancel={() => setRouterToDelete(null)}
+        isLoading={isDeleting}
+      />
     </Layout>
   );
 }

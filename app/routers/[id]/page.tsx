@@ -138,10 +138,7 @@ export default function RouterDetailPage() {
       navigator.clipboard.writeText(command)
         .then(() => {
           setCopied(true);
-          toast.success('✓ Commande copiée !', {
-            style: { background: '#10b981', color: '#fff', borderRadius: '12px' },
-            duration: 2000,
-          });
+          toast.success('Commande copiée !');
           setTimeout(() => setCopied(false), 2000);
         })
         .catch(() => toast.error('Erreur lors de la copie'));
@@ -174,7 +171,7 @@ export default function RouterDetailPage() {
 
   return (
     <Layout>
-      {/* ===== HEADER — CARTE SOMBRE DÉGRADÉE (style Login) ===== */}
+      {/* HEADER */}
       <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-black border border-white/10 p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />

@@ -6,6 +6,7 @@ import Layout from '@/components/layout/Layout';
 import { getProfiles, deleteProfile, getRouter, type HotspotProfile, type Router } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import ConfirmModal from '@/components/ui/ConfirmModal'; // ✅ IMPORT DU MODAL
 
 type Filter = 'all' | 'active' | 'inactive';
 
@@ -51,6 +52,8 @@ export default function RouterProfilesPage() {
   const [currentRouter, setCurrentRouter] = useState<Router | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
+  
+  // ✅ States pour le modal de suppression
   const [toDelete, setToDelete] = useState<HotspotProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -139,7 +142,7 @@ export default function RouterProfilesPage() {
   return (
     <Layout>
       <div className="mx-auto w-full max-w-6xl pb-28">
-        {/* ===== HEADER (sans carré, avec titre + nom du routeur) ===== */}
+        {/* ===== HEADER ===== */}
         <header className="sticky top-0 z-30 -mx-4 mb-6 flex items-end justify-between gap-3 border-b border-neutral-800/60 bg-[#0a0a0a]/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-2">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -170,7 +173,7 @@ export default function RouterProfilesPage() {
           </Link>
         </header>
 
-        {/* ===== STATISTIQUES (sobres, sans carré) ===== */}
+        {/* ===== STATISTIQUES ===== */}
         {!loading && profiles.length > 0 && (
           <div className="mb-6 grid grid-cols-3 gap-3">
             {[
@@ -191,7 +194,7 @@ export default function RouterProfilesPage() {
           </div>
         )}
 
-        {/* ===== FILTRES (chips discrets) ===== */}
+        {/* ===== FILTRES ===== */}
         {!loading && profiles.length > 0 && (
           <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((f) => (
@@ -234,7 +237,6 @@ export default function RouterProfilesPage() {
                 )}
 
                 <div className="p-5">
-                  {/* Statut + id — SANS carré d'icône */}
                   <div className="mb-3 flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                       <span
@@ -251,7 +253,6 @@ export default function RouterProfilesPage() {
                     </span>
                   </div>
 
-                  {/* Nom + prix */}
                   <h3 className="truncate text-base font-semibold text-white">
                     {profile.profile_name}
                   </h3>
@@ -264,7 +265,6 @@ export default function RouterProfilesPage() {
                     </span>
                   </div>
 
-                  {/* Caractéristiques — sans icônes, juste texte séparé */}
                   <div className="mb-4 flex flex-wrap gap-1.5">
                     <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
                       {formatDuration(profile.duration_minutes)}
@@ -279,7 +279,6 @@ export default function RouterProfilesPage() {
                     </span>
                   </div>
 
-                  {/* Actions */}
                   <div className="grid grid-cols-2 gap-2 border-t border-neutral-800/60 pt-4">
                     <Link
                       href={`/profiles/${profile.id}`}
@@ -298,7 +297,6 @@ export default function RouterProfilesPage() {
               </article>
             ))}
 
-          {/* États vides */}
           {!loading && profiles.length === 0 && (
             <div className="col-span-full flex flex-col items-center rounded-2xl border border-neutral-800/80 bg-[#111] px-6 py-16 text-center">
               <div className="mb-4 text-3xl text-neutral-700">
@@ -341,48 +339,16 @@ export default function RouterProfilesPage() {
         </Link>
       )}
 
-      {/* Bottom sheet de confirmation */}
-      {toDelete && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => !deleting && setToDelete(null)}
-          />
-          <div
-            className="relative w-full max-w-md rounded-t-3xl border-t border-neutral-800 bg-[#141414] p-6 shadow-2xl sm:rounded-3xl sm:border"
-            style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
-          >
-            <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-neutral-700 sm:hidden" />
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              </svg>
-            </div>
-            <h2 className="mb-1 text-center text-base font-semibold text-white">Supprimer ce forfait ?</h2>
-            <p className="mb-6 text-center text-sm text-neutral-400">
-              « {toDelete.profile_name} » sera définitivement supprimé. Cette action est irréversible.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setToDelete(null)}
-                disabled={deleting}
-                className="h-11 rounded-xl text-sm font-semibold text-neutral-300 ring-1 ring-neutral-700 transition-colors hover:bg-neutral-800 active:scale-95 disabled:opacity-50"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={deleting}
-                className="h-11 rounded-xl bg-red-500 text-sm font-semibold text-white shadow-lg shadow-red-500/20 transition-transform active:scale-95 disabled:opacity-60"
-              >
-                {deleting ? 'Suppression…' : 'Supprimer'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ✅ MODAL DE CONFIRMATION UNIFIÉ */}
+      <ConfirmModal
+        isOpen={toDelete !== null}
+        title="Supprimer ce forfait ?"
+        message={`« ${toDelete?.profile_name} » sera définitivement supprimé. Cette action est irréversible et empêchera les futurs achats de ce forfait.`}
+        confirmText="Oui, supprimer"
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+        isLoading={deleting}
+      />
     </Layout>
   );
 }

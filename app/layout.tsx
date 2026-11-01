@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from 'react-hot-toast';
-import { SubscriptionProvider } from "./context/SubscriptionContext";// Adaptez le chemin selon votre choix
+import { SubscriptionProvider } from "./context/SubscriptionContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,10 +27,35 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* 1. Le Toaster pour react-hot-toast */}
-        <Toaster position="top-right" />
         
-        {/* 2. Le Provider d'abonnement */}
+        {/* ✅ TOASTER PROFESSIONNEL (Dark Theme) */}
+        <Toaster 
+          position="bottom-right" 
+          toastOptions={{
+            style: {
+              background: '#111827', // gray-900
+              color: '#ffffff',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              fontSize: '14px',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#10b981', // Vert émeraude
+                secondary: '#111827',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: '#ef4444', // Rouge
+                secondary: '#111827',
+              },
+            },
+          }} 
+        />
+        
+        {/* Le Provider d'abonnement */}
         <SubscriptionProvider>
           {children}
         </SubscriptionProvider>
