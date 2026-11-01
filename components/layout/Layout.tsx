@@ -6,6 +6,7 @@ import { getMe, type User } from '@/lib/api';
 import { useSubscription } from '@/app/context/SubscriptionContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import BottomNav from './BottomNav';
 import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -19,11 +20,11 @@ export default function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const { status } = useSubscription();
-  
+
   const isPastDue = status?.subscription?.status === 'past_due';
-  const expirationDate = status?.subscription?.expires_at 
+  const expirationDate = status?.subscription?.expires_at
     ? new Date(status.subscription.expires_at).toLocaleDateString('fr-FR', {
         day: '2-digit', month: '2-digit', year: 'numeric'
       })
@@ -43,6 +44,7 @@ export default function Layout({ children }: LayoutProps) {
     fetchUser();
   }, [router]);
 
+  // Ferme le tiroir à chaque changement de page
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [pathname]);
@@ -64,20 +66,22 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#0a0a0a] text-gray-100">
+    // overflow-x-clip (et non overflow-hidden) pour que l'en-tête reste collé en haut
+    <div className="min-h-screen relative overflow-x-clip bg-[#0a0a0a] text-gray-100">
       {/* Effets de fond (Lueur ambrée) */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(217,119,6,0.15)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(217,119,6,0.05)_0%,transparent_50%)]" />
       </div>
 
-      <Sidebar 
-        user={user} 
+      {/* Tiroir « Plus » : outils secondaires */}
+      <Sidebar
+        user={user}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      <div className="lg:ml-72 transition-margin duration-300 relative z-20 flex flex-col min-h-screen">
-        
+      <div className="relative z-20 flex flex-col min-h-screen">
+
         {/* Bandeau d'alerte abonnement */}
         {isPastDue && (
           <div className="bg-amber-500 text-black px-4 py-3 text-sm font-bold flex flex-col sm:flex-row items-center justify-center gap-2 shadow-lg z-50">
@@ -87,8 +91,8 @@ export default function Layout({ children }: LayoutProps) {
                 Facture en attente. Accès maintenu jusqu'au <strong>{expirationDate}</strong>.
               </span>
             </div>
-            <Link 
-              href="/subscription" 
+            <Link
+              href="/subscription"
               data-logout
               className="mt-2 sm:mt-0 sm:ml-4 bg-black text-amber-500 px-4 py-1.5 rounded-lg hover:bg-gray-900 transition-colors whitespace-nowrap"
             >
@@ -97,19 +101,26 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         )}
 
-        <Header 
+        <Header
           onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
           user={user}
         />
 
-        <main className="p-4 sm:p-8 animate-[fadeIn_0.5s_ease-out] flex-1">
+        {/* pb-28 : laisse la place à la barre du bas sur mobile */}
+        <main className="w-full max-w-7xl mx-auto p-4 sm:p-8 pb-28 lg:pb-8 animate-[fadeIn_0.5s_ease-out] flex-1">
           {children}
         </main>
 
-        <footer className="text-center py-6 text-gray-600 text-xs border-t border-white/5">
+        <footer className="hidden lg:block text-center py-6 text-gray-600 text-xs border-t border-white/5">
           © 2026 MbeejFepal. Tous droits réservés.
         </footer>
       </div>
+
+      {/* Barre d'onglets mobile */}
+      <BottomNav
+        onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        isMenuOpen={isSidebarOpen}
+      />
 
       <style jsx>{`
         @keyframes pulse {

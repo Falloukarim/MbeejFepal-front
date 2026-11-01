@@ -1,29 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/layout/Layout';
 import { getRouters, deleteRouter, type Router } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { 
-  Wifi, 
-  Plus, 
-  Copy, 
-  Check, 
-  Edit, 
-  Trash2, 
-  Tag
+import {
+  Wifi,
+  WifiOff,
+  Plus,
+  Copy,
+  Check,
+  Edit,
+  Trash2,
+  Tag,
+  Search,
+  Clock,
+  Terminal,
+  Activity,
 } from 'lucide-react';
-import ConfirmModal from '@/components/ui/ConfirmModal'; // ✅ NOUVEL IMPORT
+import ConfirmModal from '@/components/ui/ConfirmModal';
+
+type Filter = 'all' | 'online' | 'offline' | 'never_connected';
 
 export default function RoutersPage() {
   const [routers, setRouters] = useState<Router[]>([]);
   const [loading, setLoading] = useState(true);
   const [copyingId, setCopyingId] = useState<number | null>(null);
-  
-  // ✅ NOUVEAUX STATES POUR LE MODAL
+
   const [routerToDelete, setRouterToDelete] = useState<Router | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     loadRouters();
@@ -32,13 +41,13 @@ export default function RoutersPage() {
   const loadRouters = async () => {
     try {
       const data = await getRouters();
-      
+
       const transformedRouters: Router[] = (data as any[]).map((item) => {
         const isOnline = item.WgConnected === true || item.wg_connected === true;
-        
+
         let connectionStatus: 'online' | 'offline' | 'never_connected' = 'never_connected';
         let statusDisplay = 'Jamais connecté';
-        
+
         if (isOnline) {
           connectionStatus = 'online';
           statusDisplay = 'En ligne';
@@ -70,12 +79,12 @@ export default function RoutersPage() {
     }
   };
 
-  // ✅ MODIFIÉ : Ouvre le modal au lieu du confirm()
+  // Ouvre le modal de confirmation
   const requestDelete = (router: Router) => {
     setRouterToDelete(router);
   };
 
-  // ✅ NOUVEAU : Suppression confirmée
+  // Suppression confirmée
   const confirmDelete = async () => {
     if (!routerToDelete) return;
     setIsDeleting(true);
@@ -83,7 +92,7 @@ export default function RoutersPage() {
       await deleteRouter(routerToDelete.id!);
       toast.success('Routeur supprimé avec succès');
       loadRouters();
-      setRouterToDelete(null); // Ferme le modal
+      setRouterToDelete(null);
     } catch (error) {
       toast.error('Erreur lors de la suppression');
     } finally {
@@ -93,10 +102,10 @@ export default function RoutersPage() {
 
   const copyCommand = async (id: number, token: string) => {
     setCopyingId(id);
-    
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8090';
     const command = `/tool fetch url="${apiUrl}/routers/configure/${token}" mode=https dst-path=monwifi\n/import monwifi`;
-    
+
     try {
       await navigator.clipboard.writeText(command);
       setTimeout(() => {
@@ -120,225 +129,283 @@ export default function RoutersPage() {
     } catch { return 'Date invalide'; }
   };
 
-  const getStatusBadge = (router: Router) => {
-    if (router.connection_status === 'online') {
-      return { color: 'bg-green-500/10 text-green-400 border-green-500/20', dot: 'bg-green-500 animate-pulse' };
-    } else if (router.connection_status === 'offline') {
-      return { color: 'bg-red-500/10 text-red-400 border-red-500/20', dot: 'bg-red-500' };
-    } else {
-      return { color: 'bg-amber-500/10 text-amber-500 border-amber-500/20', dot: 'bg-amber-500' };
-    }
+  // "il y a 5 min", "il y a 2 h"... (la date complète reste en infobulle)
+  const timeAgo = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Jamais';
+    const t = new Date(dateString).getTime();
+    if (Number.isNaN(t)) return 'Date invalide';
+    const diff = Math.max(0, Date.now() - t);
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return "À l'instant";
+    if (min < 60) return `Il y a ${min} min`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `Il y a ${h} h`;
+    const d = Math.floor(h / 24);
+    if (d < 30) return `Il y a ${d} j`;
+    return formatDate(dateString);
   };
+
+  const statusStyle = (router: Router) => {
+    if (router.connection_status === 'online') {
+      return {
+        label: 'En ligne',
+        pill: 'bg-green-500/10 text-green-400 border-green-500/25',
+        dot: 'bg-green-500 animate-pulse',
+        tile: 'bg-green-500/10 border-green-500/25 text-green-400',
+        bar: 'from-green-500/60 to-transparent',
+      };
+    }
+    if (router.connection_status === 'offline') {
+      return {
+        label: 'Hors ligne',
+        pill: 'bg-red-500/10 text-red-400 border-red-500/25',
+        dot: 'bg-red-500',
+        tile: 'bg-red-500/10 border-red-500/25 text-red-400',
+        bar: 'from-red-500/50 to-transparent',
+      };
+    }
+    return {
+      label: 'Jamais connecté',
+      pill: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
+      dot: 'bg-amber-500',
+      tile: 'bg-white/5 border-white/10 text-gray-400',
+      bar: 'from-amber-500/50 to-transparent',
+    };
+  };
+
+  const counts = useMemo(() => {
+    const online = routers.filter((r) => r.connection_status === 'online').length;
+    const offline = routers.filter((r) => r.connection_status === 'offline').length;
+    const never = routers.filter((r) => r.connection_status === 'never_connected').length;
+    return { all: routers.length, online, offline, never_connected: never };
+  }, [routers]);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return routers.filter((r) => {
+      if (filter !== 'all' && r.connection_status !== filter) return false;
+      if (q && !(r.name || '').toLowerCase().includes(q) && !String(r.id).includes(q)) return false;
+      return true;
+    });
+  }, [routers, search, filter]);
 
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
+        <div className="max-w-3xl mx-auto px-4 pt-4 space-y-4 animate-pulse">
+          <div className="h-8 w-56 rounded-xl bg-white/10" />
+          <div className="h-28 rounded-[28px] bg-white/10" />
+          <div className="h-12 rounded-2xl bg-white/10" />
+          <div className="h-52 rounded-[28px] bg-white/10" />
+          <div className="h-52 rounded-[28px] bg-white/10" />
         </div>
       </Layout>
     );
   }
 
+  const filters: { key: Filter; label: string; count: number }[] = [
+    { key: 'all', label: 'Tous', count: counts.all },
+    { key: 'online', label: 'En ligne', count: counts.online },
+    { key: 'offline', label: 'Hors ligne', count: counts.offline },
+    { key: 'never_connected', label: 'Jamais connectés', count: counts.never_connected },
+  ];
+
+  const onlinePct = counts.all > 0 ? Math.round((counts.online / counts.all) * 100) : 0;
+
   return (
     <Layout>
-      <div className="space-y-6 max-w-7xl mx-auto">
-        
+      <style>{`
+        @keyframes rt-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        .rt-rise { animation: rt-rise .4s cubic-bezier(.2,.8,.2,1) both; }
+      `}</style>
+
+      <div className="max-w-3xl mx-auto px-4 pt-4 pb-10">
         {/* En-tête */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm mb-3">
-              <Wifi className="w-4 h-4" />
-              GESTION DES ROUTEURS
-            </div>
-            <h1 className="text-3xl font-bold text-white">Routeurs MikroTik</h1>
-            <p className="text-gray-300 mt-2">Gérez vos points d'accès et leur configuration</p>
+        <header className="mb-5">
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
+            <Wifi className="w-3.5 h-3.5" /> GESTION DES ROUTEURS
           </div>
-          
-          <Link
-            href="/routers/new"
-            className="group relative overflow-hidden bg-[#d97706] text-white font-semibold py-2.5 px-5 rounded-xl hover:bg-[#b45309] hover:shadow-lg transition-all duration-300 flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-            Nouveau routeur
-          </Link>
-        </div>
+          <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Routeurs MikroTik</h1>
+          <p className="text-sm text-gray-400 mt-1">Gérez vos points d'accès et leur configuration</p>
+        </header>
 
         {routers.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-12 text-center border border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-            <div className="relative z-10">
-              <div className="w-20 h-20 mx-auto mb-6 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10">
-                <Wifi className="w-10 h-10 text-amber-500" />
+          <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-gray-900 to-black border border-white/10 p-8 text-center shadow-xl">
+            <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+            <div className="relative">
+              <div className="w-20 h-20 mx-auto mb-5 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center">
+                <Wifi className="w-10 h-10" />
               </div>
-              <h3 className="text-2xl font-bold text-white mb-3">Aucun routeur configuré</h3>
-              <p className="text-gray-400 mb-8 max-w-md mx-auto">
+              <h3 className="text-2xl font-extrabold text-white mb-2">Aucun routeur configuré</h3>
+              <p className="text-gray-400 mb-7 max-w-sm mx-auto">
                 Commencez par ajouter votre premier routeur MikroTik pour gérer vos points d'accès Wi-Fi.
               </p>
-              <Link href="/routers/new" className="inline-flex items-center gap-2 bg-[#d97706] text-white font-semibold py-3 px-8 rounded-xl hover:bg-[#b45309] transition-all">
-                <Plus className="w-5 h-5" />
-                Ajouter un routeur
+              <Link
+                href="/routers/new"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-14 px-8 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold shadow-xl shadow-amber-600/25 transition-all active:scale-[0.97]"
+              >
+                <Plus className="w-5 h-5" /> Ajouter un routeur
               </Link>
             </div>
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-2xl border border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+          <>
+            {/* Carte résumé */}
+            <section className="relative overflow-hidden rounded-[28px] p-5 mb-4 border border-amber-500/25 bg-gradient-to-br from-amber-500/15 via-gray-900 to-black shadow-xl">
+              <div className="absolute -top-14 -right-14 w-48 h-48 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+              <div className="relative flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-widest text-gray-400 font-bold">État du réseau</p>
+                  <p className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-black tracking-tight text-white tabular-nums">{counts.online}</span>
+                    <span className="text-lg font-bold text-gray-400 tabular-nums">/ {counts.all}</span>
+                    <span className="text-sm text-gray-400 font-medium">en ligne</span>
+                  </p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center">
+                  <Activity className="w-7 h-7" />
+                </div>
+              </div>
+              <div className="relative mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-700" style={{ width: `${onlinePct}%` }} />
+              </div>
+              <div className="relative mt-2 flex items-center gap-4 text-xs text-gray-400">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" />{counts.online} en ligne</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />{counts.offline} hors ligne</span>
+                {counts.never_connected > 0 && (
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" />{counts.never_connected} en attente</span>
+                )}
+              </div>
+            </section>
 
-            {/* VUE DESKTOP */}
-            <div className="hidden lg:block overflow-x-auto relative z-10">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    <th className="px-6 py-5">Routeur</th>
-                    <th className="px-6 py-5">Statut</th>
-                    <th className="px-6 py-5">Dernière connexion</th>
-                    <th className="px-6 py-5 text-center">Configuration</th>
-                    <th className="px-6 py-5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {routers.map((router) => {
-                    const status = getStatusBadge(router);
-                    return (
-                      <tr key={router.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${router.connection_status === 'online' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/5 border-white/10 text-gray-400'}`}>
-                              <Wifi className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="font-medium text-white">{router.name || 'Routeur sans nom'}</div>
-                              <div className="text-xs text-gray-500 font-mono mt-0.5">ID: {router.id}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-white/5 border-white/10">
-                            <span className={`w-2 h-2 rounded-full ${status.dot}`}></span>
-                            <span className={`text-xs font-medium ${status.color.split(' ')[1]}`}>
-                              {router.status_display}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-400">
-                          {formatDate(router.last_seen)}
-                        </td>
-                        <td className="px-6 py-4 text-center">
+            {/* Bouton principal */}
+            <Link
+              href="/routers/new"
+              className="w-full h-14 mb-4 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl text-base font-bold shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98]"
+            >
+              <Plus className="w-5 h-5" /> Nouveau routeur
+            </Link>
+
+            {/* Recherche */}
+            <div className="relative mb-3">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un routeur"
+                className="w-full h-12 pl-12 pr-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+              />
+            </div>
+
+            {/* Filtres */}
+            <div className="mb-5 -mx-4 px-4 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {filters.map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold border transition-all active:scale-95 ${
+                    filter === f.key ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/20' : 'bg-white/5 text-gray-300 border-white/10'
+                  }`}
+                >
+                  {f.label}
+                  <span className={`min-w-5 px-1.5 rounded-full text-[11px] leading-5 ${filter === f.key ? 'bg-black/15' : 'bg-white/10 text-gray-400'}`}>{f.count}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Liste */}
+            {visible.length === 0 ? (
+              <div className="text-center py-12 rounded-[28px] bg-white/5 border border-white/10">
+                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-white/5 text-gray-500 flex items-center justify-center">
+                  <WifiOff className="w-7 h-7" />
+                </div>
+                <p className="font-bold text-white">Aucun résultat</p>
+                <p className="text-sm text-gray-400 mt-1">Modifiez votre recherche ou le filtre.</p>
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-2 gap-3">
+                {visible.map((router, i) => {
+                  const st = statusStyle(router);
+                  const copied = copyingId === router.id;
+                  return (
+                    <article
+                      key={router.id}
+                      className="rt-rise relative overflow-hidden rounded-[28px] bg-gradient-to-br from-gray-900 to-black border border-white/10 p-4 shadow-xl"
+                      style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
+                    >
+                      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${st.bar}`} />
+
+                      {/* Haut */}
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 shrink-0 rounded-2xl border flex items-center justify-center ${st.tile}`}>
+                          {router.connection_status === 'offline' ? <WifiOff className="w-6 h-6" /> : <Wifi className="w-6 h-6" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-white text-base truncate">{router.name || 'Routeur sans nom'}</h3>
+                          <p className="text-xs text-gray-500 font-mono mt-0.5">ID : {router.id}</p>
+                        </div>
+                        <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-extrabold tracking-wider ${st.pill}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                          {st.label.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {/* Infos */}
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold flex items-center gap-1"><Clock className="w-3 h-3" /> Dernière vue</p>
+                          <p className="text-sm font-bold text-white mt-1 truncate" title={formatDate(router.last_seen)}>{timeAgo(router.last_seen)}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold flex items-center gap-1"><Terminal className="w-3 h-3" /> Configuration</p>
                           {router.config_token ? (
                             <button
                               onClick={() => copyCommand(router.id!, router.config_token!)}
-                              disabled={copyingId === router.id}
-                              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-xs font-medium ${
-                                copyingId === router.id
-                                  ? 'bg-green-500/20 text-green-400'
-                                  : 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white'
-                              }`}
+                              disabled={copied}
+                              className={`mt-1 inline-flex items-center gap-1.5 text-sm font-bold transition-all active:scale-95 ${copied ? 'text-green-400' : 'text-amber-400'}`}
                             >
-                              {copyingId === router.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                              {copyingId === router.id ? 'Copié !' : 'Commande'}
+                              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                              {copied ? 'Copié !' : 'Copier la commande'}
                             </button>
                           ) : (
-                            <span className="text-xs text-gray-600">Non configuré</span>
+                            <p className="text-sm text-gray-500 italic mt-1">Non configuré</p>
                           )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link href={`/routers/${router.id}/profiles`} className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all" title="Gérer les forfaits">
-                              <Tag className="w-4 h-4" />
-                            </Link>
-                            <Link href={`/routers/${router.id}`} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Modifier">
-                              <Edit className="w-4 h-4" />
-                            </Link>
-                            <button onClick={() => requestDelete(router)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" title="Supprimer">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* VUE MOBILE */}
-            <div className="lg:hidden flex flex-col divide-y divide-white/5 relative z-10">
-              {routers.map((router) => {
-                const status = getStatusBadge(router);
-                return (
-                  <div key={router.id} className="p-5 hover:bg-white/5 transition-colors">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${router.connection_status === 'online' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/5 border-white/10 text-gray-400'}`}>
-                          <Wifi className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-white text-base">{router.name || 'Sans nom'}</h3>
-                          <p className="text-xs text-gray-500 font-mono mt-0.5">ID: {router.id}</p>
                         </div>
                       </div>
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-white/5 border-white/10">
-                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`}></span>
-                        <span className={`text-[10px] uppercase tracking-wide font-bold ${status.color.split(' ')[1]}`}>
-                          {router.connection_status === 'online' ? 'En ligne' : router.connection_status === 'offline' ? 'Hors ligne' : 'Jamais'}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div className="space-y-3 bg-white/5 rounded-xl p-3 border border-white/5 mb-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400">Dernière vue</span>
-                        <span className="text-gray-200 font-medium">{formatDate(router.last_seen)}</span>
+                      {/* Actions */}
+                      <div className="flex gap-2 mt-3">
+                        <Link
+                          href={`/routers/${router.id}/profiles`}
+                          className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm font-bold transition-all active:scale-95"
+                        >
+                          <Tag className="w-4 h-4" /> Forfaits
+                        </Link>
+                        <Link
+                          href={`/routers/${router.id}`}
+                          className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl bg-white/5 border border-white/10 text-gray-200 text-sm font-bold transition-all active:scale-95"
+                        >
+                          <Edit className="w-4 h-4" /> Modifier
+                        </Link>
+                        <button
+                          onClick={() => requestDelete(router)}
+                          aria-label={`Supprimer ${router.name || 'ce routeur'}`}
+                          className="w-12 h-12 flex items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/15 text-red-400 transition-all active:scale-95"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400">Configuration</span>
-                        {router.config_token ? (
-                          <button
-                            onClick={() => copyCommand(router.id!, router.config_token!)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              copyingId === router.id ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-white hover:bg-white/20'
-                            }`}
-                          >
-                            {copyingId === router.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                            {copyingId === router.id ? 'Copié' : 'Copier'}
-                          </button>
-                        ) : (
-                          <span className="text-gray-500 text-xs italic">Non configuré</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Link 
-                        href={`/routers/${router.id}/profiles`} 
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/5 text-gray-300 rounded-xl hover:bg-white/10 text-sm font-medium transition-colors border border-white/5"
-                      >
-                        <Tag className="w-4 h-4" /> Forfaits
-                      </Link>
-                      <Link 
-                        href={`/routers/${router.id}`} 
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/5 text-gray-300 rounded-xl hover:bg-white/10 text-sm font-medium transition-colors border border-white/5"
-                      >
-                        <Edit className="w-4 h-4" /> Modifier
-                      </Link>
-                      <button 
-                        onClick={() => requestDelete(router)} 
-                        className="w-12 flex items-center justify-center bg-red-500/10 text-red-400 rounded-xl hover:bg-red-500/20 transition-colors border border-red-500/10"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-          </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* ✅ LE MODAL DE CONFIRMATION */}
+      {/* Modal de confirmation */}
       <ConfirmModal
         isOpen={routerToDelete !== null}
         title="Supprimer ce routeur ?"
