@@ -1,47 +1,475 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { LucideIcon } from 'lucide-react';
 import {
-  Wifi,
   ArrowRight,
   Router as RouterIcon,
   Tag,
   Wallet,
-  BarChart3,
   ShieldCheck,
-  Smartphone,
-  Network,
-  Server,
   Palette,
   CreditCard,
-  Banknote,
   QrCode,
   Users,
   Gauge,
   Check,
+  X,
   Mail,
+  Layers,
+  GitMerge,
+  Satellite,
+  RadioTower,
+  Home,
+  Smartphone,
+  Network,
+  Server,
+  Sparkles,
 } from 'lucide-react';
 
-// 6 cartes affichées 3 par 3 (2 en haut, 1 centrée en dessous) => 2 pages
-const FEATURE_PAGES = 2;
-
 const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 28 },
   visible: { opacity: 1, y: 0 },
 };
+
+function BrandMark({ className = 'w-6 h-6' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M5 12.5C7.5 10 12.5 10 15 12.5" strokeLinecap="round" />
+      <path d="M2 8.5C6 4.5 14 4.5 18 8.5" strokeLinecap="round" strokeOpacity="0.7" />
+      <path d="M8 16.5L12 12.5L16 16.5" strokeLinecap="round" strokeWidth="2" />
+    </svg>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BRIQUES DES SCHÉMAS ANIMÉS (viewBox 400 x 300)
+   ══════════════════════════════════════════════════════════════ */
+
+// Mode compact : schémas affichés dans la maquette de téléphone
+const CompactCtx = createContext(false);
+
+const COLORS = {
+  amber: '#f59e0b',
+  sky: '#38bdf8',
+  green: '#4ade80',
+  red: '#ef4444',
+  line: 'rgba(255,255,255,0.14)',
+};
+
+// Câble : trait de base + halo
+function Cable({ d, color = COLORS.line, width = 3, dashed = false, glow = false }: { d: string; color?: string; width?: number; dashed?: boolean; glow?: boolean }) {
+  return (
+    <g>
+      {glow && <path d={d} fill="none" stroke={color} strokeWidth={width + 6} strokeLinecap="round" opacity="0.15" />}
+      <path d={d} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeDasharray={dashed ? '6 7' : undefined} />
+    </g>
+  );
+}
+
+// Points lumineux qui circulent le long d'un câble
+function Flow({ d, color, count = 3, dur = 3, offset = 0, r = 3.6 }: { d: string; color: string; count?: number; dur?: number; offset?: number; r?: number }) {
+  return (
+    <g>
+      {Array.from({ length: count }).map((_, i) => (
+        <circle key={i} r={r} fill={color} style={{ filter: `drop-shadow(0 0 5px ${color})` }}>
+          <animateMotion dur={`${dur}s`} repeatCount="indefinite" begin={`-${(i * dur) / count + offset}s`} path={d} />
+        </circle>
+      ))}
+    </g>
+  );
+}
+
+// Groupe dont l'opacité suit un cycle
+function Cycle({ values, keyTimes, dur = 9, children }: { values: string; keyTimes: string; dur?: number; children: ReactNode }) {
+  return (
+    <g>
+      <animate attributeName="opacity" values={values} keyTimes={keyTimes} dur={`${dur}s`} repeatCount="indefinite" />
+      {children}
+    </g>
+  );
+}
+
+type Tone = 'neutral' | 'amber' | 'sky' | 'green';
+const toneCls: Record<Tone, string> = {
+  neutral: 'border-white/15 text-gray-100',
+  amber: 'border-amber-400/50 text-amber-300 shadow-[0_0_28px_-4px_rgba(245,158,11,0.55)]',
+  sky: 'border-sky-400/50 text-sky-300 shadow-[0_0_28px_-4px_rgba(56,189,248,0.55)]',
+  green: 'border-green-400/50 text-green-300 shadow-[0_0_28px_-4px_rgba(74,222,128,0.5)]',
+};
+
+// Appareil (position en coordonnées du viewBox)
+function Device({ x, y, icon: Icon, label, tone = 'neutral', large = false }: { x: number; y: number; icon: LucideIcon; label?: string; tone?: Tone; large?: boolean }) {
+  const compact = useContext(CompactCtx);
+  if (compact) {
+    return (
+      <div className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1" style={{ left: `${x / 4}%`, top: `${y / 3}%` }}>
+        <div className={`${large ? 'w-11 h-11' : 'w-9 h-9'} rounded-xl bg-white/10 border flex items-center justify-center ${toneCls[tone]}`}>
+          <Icon className={large ? 'w-5 h-5' : 'w-4 h-4'} />
+        </div>
+        {label && <span className="text-[8px] font-bold text-gray-300 whitespace-nowrap">{label}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5" style={{ left: `${x / 4}%`, top: `${y / 3}%` }}>
+      <div
+        className={`${large ? 'w-14 h-14 sm:w-16 sm:h-16' : 'w-11 h-11 sm:w-14 sm:h-14'} rounded-2xl bg-white/10 backdrop-blur-md border flex items-center justify-center ${toneCls[tone]}`}
+      >
+        <Icon className={large ? 'w-7 h-7 sm:w-8 sm:h-8' : 'w-5 h-5 sm:w-6 sm:h-6'} />
+      </div>
+      {label && <span className="text-[10px] sm:text-xs font-bold text-gray-300 whitespace-nowrap">{label}</span>}
+    </div>
+  );
+}
+
+// Étiquette posée sur un câble
+function Tagged({ x, y, children, tone = 'neutral' }: { x: number; y: number; children: ReactNode; tone?: Tone }) {
+  const compact = useContext(CompactCtx);
+  const cls =
+    tone === 'amber' ? 'bg-amber-500/20 border-amber-400/40 text-amber-200'
+    : tone === 'sky' ? 'bg-sky-500/20 border-sky-400/40 text-sky-200'
+    : tone === 'green' ? 'bg-green-500/20 border-green-400/40 text-green-200'
+    : 'bg-white/10 border-white/20 text-gray-200';
+  return (
+    <span
+      className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border font-extrabold backdrop-blur-md whitespace-nowrap ${compact ? 'px-1.5 py-px text-[7px]' : 'px-2 py-0.5 text-[9px] sm:text-[11px]'} ${cls}`}
+      style={{ left: `${x / 4}%`, top: `${y / 3}%` }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Stage({ children, svg }: { children: ReactNode; svg: ReactNode }) {
+  return (
+    <div className="relative w-full max-w-xl mx-auto aspect-[4/3]">
+      <svg viewBox="0 0 400 300" className="absolute inset-0 w-full h-full" fill="none" aria-hidden="true">
+        {svg}
+      </svg>
+      {children}
+    </div>
+  );
+}
+
+/* ───────── Schéma 1 : VLAN ───────── */
+function VlanDiagram() {
+  const lanA = 'M190 150 C250 150 265 70 335 70';
+  const lanB = 'M190 150 C250 150 265 230 335 230';
+  const trunk = 'M60 150 L190 150';
+  return (
+    <Stage
+      svg={
+        <>
+          <Cable d={trunk} color="rgba(255,255,255,0.22)" width={7} />
+          <Flow d={trunk} color={COLORS.amber} count={2} dur={2.4} />
+          <Flow d={trunk} color={COLORS.sky} count={2} dur={2.4} offset={0.6} />
+          <Cable d={lanA} color="rgba(245,158,11,0.45)" glow />
+          <Flow d={lanA} color={COLORS.amber} count={3} dur={2.6} />
+          <Cable d={lanB} color="rgba(56,189,248,0.45)" glow />
+          <Flow d={lanB} color={COLORS.sky} count={3} dur={2.6} />
+        </>
+      }
+    >
+      <Device x={60} y={150} icon={RouterIcon} label="Routeur" large />
+      <Device x={190} y={150} icon={Server} label="Switch" />
+      <Device x={335} y={70} icon={Home} label="Abonnés PPPoE" tone="amber" />
+      <Device x={335} y={230} icon={Smartphone} label="Clients Hotspot" tone="sky" />
+      <Tagged x={125} y={122}>Trunk · 1 câble</Tagged>
+      <Tagged x={268} y={96} tone="amber">VLAN 20</Tagged>
+      <Tagged x={268} y={204} tone="sky">VLAN 30</Tagged>
+    </Stage>
+  );
+}
+
+/* ───────── Schéma 2 : Load balancing ───────── */
+function LoadBalancingDiagram() {
+  const w1 = 'M55 55 C135 55 145 150 225 150';
+  const w2 = 'M55 150 L225 150';
+  const w3 = 'M55 245 C135 245 145 150 225 150';
+  const out = 'M225 150 L350 150';
+  return (
+    <Stage
+      svg={
+        <>
+          <Cable d={w1} color="rgba(245,158,11,0.4)" glow />
+          <Flow d={w1} color={COLORS.amber} dur={3} />
+          <Cable d={w2} color="rgba(56,189,248,0.4)" glow />
+          <Flow d={w2} color={COLORS.sky} dur={2.6} offset={0.4} />
+          <Cable d={w3} color="rgba(74,222,128,0.4)" glow />
+          <Flow d={w3} color={COLORS.green} dur={3.4} offset={0.8} />
+          <Cable d={out} color="rgba(255,255,255,0.22)" width={7} />
+          <Flow d={out} color="#ffffff" count={4} dur={2} r={3} />
+        </>
+      }
+    >
+      <Device x={55} y={55} icon={Satellite} label="Starlink 1" tone="amber" />
+      <Device x={55} y={150} icon={Satellite} label="Starlink 2" tone="sky" />
+      <Device x={55} y={245} icon={RadioTower} label="4G" tone="green" />
+      <Device x={225} y={150} icon={RouterIcon} label="Routeur" large />
+      <Device x={350} y={150} icon={Users} label="Vos clients" />
+      <Tagged x={128} y={74} tone="amber">33 %</Tagged>
+      <Tagged x={128} y={150} tone="sky">33 %</Tagged>
+      <Tagged x={128} y={226} tone="green">33 %</Tagged>
+    </Stage>
+  );
+}
+
+/* ───────── Schéma 3 : Failover (cycle de 9 s : normal → panne → retour) ───────── */
+function FailoverDiagram() {
+  const w1 = 'M55 80 C135 80 145 150 225 150';
+  const w2 = 'M55 220 C135 220 145 150 225 150';
+  const out = 'M225 150 L350 150';
+  const okVals = '1;1;0;0;1;1';
+  const failVals = '0;0;1;1;0;0';
+  const kt = '0;0.3;0.34;0.7;0.74;1';
+  return (
+    <Stage
+      svg={
+        <>
+          {/* Ligne principale */}
+          <Cable d={w1} color="rgba(255,255,255,0.12)" />
+          <Cycle values={okVals} keyTimes={kt}>
+            <Cable d={w1} color="rgba(74,222,128,0.6)" glow />
+            <Flow d={w1} color={COLORS.green} dur={2.6} />
+          </Cycle>
+          <Cycle values={failVals} keyTimes={kt}>
+            <Cable d={w1} color="rgba(239,68,68,0.7)" dashed />
+          </Cycle>
+
+          {/* Ligne de secours */}
+          <Cable d={w2} color="rgba(255,255,255,0.12)" />
+          <Cycle values={failVals} keyTimes={kt}>
+            <Cable d={w2} color="rgba(245,158,11,0.65)" glow />
+            <Flow d={w2} color={COLORS.amber} dur={2.6} />
+          </Cycle>
+
+          {/* Sortie vers les clients : toujours active */}
+          <Cable d={out} color="rgba(255,255,255,0.22)" width={7} />
+          <Flow d={out} color="#ffffff" count={4} dur={2} r={3} />
+        </>
+      }
+    >
+      <Device x={55} y={80} icon={Satellite} label="Ligne principale" />
+      <Device x={55} y={220} icon={RadioTower} label="Ligne de secours" />
+      <Device x={225} y={150} icon={RouterIcon} label="Routeur" large />
+      <Device x={350} y={150} icon={Users} label="Vos clients" />
+
+      {/* Anneau rouge + croix pendant la panne */}
+      <div
+        className="lp-fail absolute -translate-x-1/2 -translate-y-1/2 w-12 h-12 sm:w-[3.7rem] sm:h-[3.7rem] rounded-2xl border-2 border-red-500/80 shadow-[0_0_26px_rgba(239,68,68,0.55)] pointer-events-none"
+        style={{ left: `${55 / 4}%`, top: `${80 / 3}%` }}
+      />
+      <span className="lp-fail absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg" style={{ left: `${128 / 4}%`, top: `${95 / 3}%` }}>
+        <X className="w-4 h-4" strokeWidth={3.5} />
+      </span>
+
+      {/* Statut qui alterne */}
+      <span className="lp-ok absolute -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 rounded-full bg-green-500/15 border border-green-400/40 text-green-200 text-[10px] sm:text-xs font-extrabold whitespace-nowrap backdrop-blur-md" style={{ left: '50%', top: '93%' }}>
+        ● Ligne principale active
+      </span>
+      <span className="lp-fail absolute -translate-x-1/2 -translate-y-1/2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-200 text-[10px] sm:text-xs font-extrabold whitespace-nowrap backdrop-blur-md" style={{ left: '50%', top: '93%' }}>
+        ⚡ Bascule vers la ligne de secours
+      </span>
+    </Stage>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MAQUETTE iPHONE 17 (HERO) : affiche le schéma VLAN
+   ══════════════════════════════════════════════════════════════ */
+function PhoneMock() {
+  return (
+    <div className="relative mx-auto h-[min(620px,calc(100dvh-19rem))] aspect-[9/19.5]">
+      {/* Boutons latéraux */}
+      <span className="absolute -left-[3px] top-[110px] h-8 w-[3px] rounded-l bg-orange-300/70" />
+      <span className="absolute -left-[3px] top-[160px] h-14 w-[3px] rounded-l bg-orange-300/70" />
+      <span className="absolute -left-[3px] top-[225px] h-14 w-[3px] rounded-l bg-orange-300/70" />
+      <span className="absolute -right-[3px] top-[170px] h-20 w-[3px] rounded-r bg-orange-300/70" />
+
+      {/* Châssis aluminium */}
+      <div className="h-full rounded-[3.1rem] p-[3px] bg-gradient-to-br from-orange-200 via-orange-500 to-orange-800 shadow-[0_40px_100px_-20px_rgba(217,119,6,0.55)]">
+        <div className="h-full rounded-[2.95rem] bg-black p-[7px]">
+          <div className="relative h-full rounded-[2.4rem] overflow-hidden bg-[#0a0a0a] flex flex-col">
+            {/* Dynamic Island */}
+            <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 h-[22px] w-[84px] rounded-full bg-black" />
+
+            {/* Barre d'état */}
+            <div className="relative z-10 flex items-center justify-between px-6 pt-3 text-[11px] font-bold text-white">
+              <span>9:41</span>
+              <span className="flex items-center gap-1">
+                <span className="flex items-end gap-[2px]">
+                  {[4, 6, 8, 10].map((h) => (
+                    <span key={h} className="w-[3px] rounded-sm bg-white" style={{ height: h }} />
+                  ))}
+                </span>
+                <span className="ml-1 h-[10px] w-[20px] rounded-[3px] border border-white/60 p-[1px]">
+                  <span className="block h-full w-[75%] rounded-[1px] bg-white" />
+                </span>
+              </span>
+            </div>
+
+            {/* Contenu de l'app */}
+            <div className="relative flex-1 min-h-0 flex flex-col justify-center px-3.5 pt-5 pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center">
+                    <BrandMark className="w-5 h-5" />
+                  </span>
+                  <div>
+                    <p className="text-[9px] text-gray-500 font-bold leading-none">Réseau</p>
+                    <p className="text-[13px] font-extrabold text-white leading-tight">VLAN</p>
+                  </div>
+                </div>
+                <span className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80] animate-pulse" />
+              </div>
+
+              <div className="relative mt-4 rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 to-black overflow-hidden">
+                <div className="absolute inset-0 opacity-60 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:18px_18px]" />
+                <div className="relative px-1 py-3">
+                  <CompactCtx.Provider value={true}>
+                    <VlanDiagram />
+                  </CompactCtx.Provider>
+                </div>
+              </div>
+
+              <p className="mt-4 text-center text-[13px] font-extrabold text-white leading-tight">Un câble. Deux réseaux isolés.</p>
+              <div className="mt-3 flex justify-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] font-extrabold text-amber-400">
+                  <GitMerge className="w-3 h-3" /> Multi-WAN
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/25 text-[10px] font-extrabold text-green-400">
+                  <ShieldCheck className="w-3 h-3" /> Failover
+                </span>
+              </div>
+            </div>
+
+            {/* Barre d'accueil */}
+            <div className="mx-auto mb-2 h-1 w-24 rounded-full bg-white/70" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PAIEMENTS MOBILES (à côté du téléphone)
+   ══════════════════════════════════════════════════════════════ */
+function PaymentPanel() {
+  const [imgOk, setImgOk] = useState(true);
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 30 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.8, delay: 0.35 }}
+      className="w-full max-w-md mx-auto flex flex-col items-center text-center"
+    >
+      {/* Image : placez votre fichier dans public/images/wave.jpg */}
+      {imgOk && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/images/wave.jpg"
+          alt="Paiement mobile Wave et Orange Money"
+          onError={() => setImgOk(false)}
+          className="w-full aspect-[4/3] object-cover rounded-[28px] border border-white/10 shadow-2xl"
+        />
+      )}
+
+      <div className={imgOk ? 'mt-6' : ''}>
+        <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-500">Paiement mobile</p>
+        <h3 className="mt-1 text-xl font-extrabold text-white leading-tight">Vos clients paient. Vous encaissez.</h3>
+        <p className="mt-1 text-sm text-gray-300">Wave et Orange Money, directement dans votre portefeuille.</p>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+        <span className="px-4 py-2 rounded-full bg-[#1dc8ff] text-[#06222e] text-sm font-black tracking-tight">Wave</span>
+        <span className="px-4 py-2 rounded-full bg-[#ff7900] text-black text-sm font-black tracking-tight">Orange Money</span>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PAGE
+   ══════════════════════════════════════════════════════════════ */
+
+type ShowcaseKey = 'vlan' | 'lb' | 'failover';
+
+const showcases: {
+  key: ShowcaseKey;
+  label: string;
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  chips: string[];
+  Diagram: () => JSX.Element;
+}[] = [
+  {
+    key: 'vlan',
+    label: 'VLAN',
+    icon: Layers,
+    title: 'Un câble. Deux réseaux isolés.',
+    desc: 'Séparez le Hotspot et le PPPoE sur un seul trunk.',
+    chips: ['Trunk unique', 'Réseaux isolés', 'Configuré depuis l\'app'],
+    Diagram: VlanDiagram,
+  },
+  {
+    key: 'lb',
+    label: 'Load balancing',
+    icon: GitMerge,
+    title: 'Toutes vos lignes. Une seule connexion.',
+    desc: 'Répartissez le trafic sur plusieurs lignes, par exemple Starlink.',
+    chips: ['Multi-WAN', 'Répartition automatique', 'Plus de capacité'],
+    Diagram: LoadBalancingDiagram,
+  },
+  {
+    key: 'failover',
+    label: 'Failover',
+    icon: ShieldCheck,
+    title: 'Une ligne tombe ? Le service continue.',
+    desc: 'Le trafic bascule automatiquement sur les autres lignes.',
+    chips: ['Bascule automatique', 'Zéro intervention', 'Service continu'],
+    Diagram: FailoverDiagram,
+  },
+];
+
+const tiles: { icon: LucideIcon; label: string }[] = [
+  { icon: RouterIcon, label: 'Multi-routeurs' },
+  { icon: Tag, label: 'Forfaits sur mesure' },
+  { icon: Wallet, label: 'Portefeuille' },
+  { icon: CreditCard, label: 'Wave & Orange Money' },
+  { icon: QrCode, label: 'QR codes & tickets' },
+  { icon: Palette, label: 'Portail à vos couleurs' },
+  { icon: Users, label: 'Multi-appareils' },
+  { icon: Gauge, label: 'Quotas de données' },
+  { icon: ShieldCheck, label: 'Tunnel WireGuard' },
+];
+
+const steps = [
+  { icon: RouterIcon, title: 'Connectez votre routeur', desc: 'Collez le script fourni, c\'est prêt.' },
+  { icon: Tag, title: 'Créez vos forfaits', desc: 'Durée, prix, débit, appareils.' },
+  { icon: Wallet, title: 'Encaissez', desc: 'Vos gains arrivent dans votre portefeuille.' },
+];
+
+const comparison = [
+  { title: 'Sauvegarde automatique', others: 'Abonnement mensuel', ours: 'Incluse, script à vie' },
+  { title: 'Codes & QR codes', others: 'Messages WhatsApp facturés', ours: 'Illimités, sans frais' },
+  { title: 'Répartition de charge', others: 'Option facturée très cher', ours: 'Multi-WAN + failover, option unique de 3 000 F' },
+  { title: 'Tarifs', others: 'Frais cachés et de mise en service', ours: 'Prix fixe, 6 500 F/mois pour 10 routeurs · retrait 5 %' },
+];
 
 export default function HomePage() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
+  const [showBar, setShowBar] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [page, setPage] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const timelineRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<ShowcaseKey>('vlan');
+  const [userPicked, setUserPicked] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -56,200 +484,68 @@ export default function HomePage() {
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 20);
-      // Progression du trait de la timeline selon le défilement
-      const el = timelineRef.current;
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        const vh = window.innerHeight;
-        const p = (vh * 0.65 - rect.top) / rect.height;
-        setProgress(Math.min(1, Math.max(0, p)));
-      }
+      setShowBar(window.scrollY > 520);
     };
     onScroll();
-    window.addEventListener('scroll', onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Rotation automatique des schémas (s'arrête dès que l'utilisateur choisit)
   useEffect(() => {
-    if (paused) return;
-    const id = setInterval(() => setPage((p) => (p + 1) % FEATURE_PAGES), 4500);
+    if (userPicked) return;
+    const id = setInterval(() => {
+      setActive((a) => (a === 'vlan' ? 'lb' : a === 'lb' ? 'failover' : 'vlan'));
+    }, 9500);
     return () => clearInterval(id);
-  }, [paused]);
+  }, [userPicked]);
 
   if (!mounted) return null;
 
-  const features = [
-    {
-      icon: RouterIcon,
-      title: 'Gestion des routeurs',
-      desc: 'Ajoutez vos routeurs MikroTik en quelques minutes et suivez leur état en temps réel : en ligne, hors ligne, dernière connexion.',
-    },
-    {
-      icon: Tag,
-      title: 'Forfaits sur mesure',
-      desc: "Créez vos offres : durée, prix, limite de débit et nombre d'appareils autorisés. Modifiez-les à tout moment.",
-    },
-    {
-      icon: Wallet,
-      title: 'Portefeuille intégré',
-      desc: 'Suivez vos revenus, consultez votre solde et gardez le contrôle sur chaque transaction de votre zone WiFi.',
-    },
-    {
-      icon: BarChart3,
-      title: 'Statistiques claires',
-      desc: "Visualisez les sessions actives, les appareils connectés et l'activité de vos hotspots depuis un seul tableau de bord.",
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Sécurisé et fiable',
-      desc: 'Connexions chiffrées entre vos routeurs et la plateforme, accès protégé par authentification.',
-    },
-    {
-      icon: Smartphone,
-      title: 'Accessible partout',
-      desc: 'Pilotez votre activité depuis votre téléphone, votre tablette ou votre ordinateur, sans rien installer.',
-    },
-  ];
-
-  const steps = [
-    {
-      title: 'Connectez votre routeur',
-      desc: 'Créez votre compte, ajoutez votre routeur et appliquez la configuration fournie.',
-    },
-    {
-      title: 'Définissez vos forfaits',
-      desc: 'Choisissez durées, tarifs et limites de débit adaptés à vos clients.',
-    },
-    {
-      title: 'Encaissez vos revenus',
-      desc: 'Vos clients se connectent et paient, vos gains arrivent dans votre portefeuille.',
-    },
-  ];
-
-  const techGroups = [
-    {
-      icon: Network,
-      title: 'Réseau & Infrastructure',
-      subtitle: 'Zéro configuration',
-      items: [
-        {
-          icon: ShieldCheck,
-          title: 'Tunnel VPN WireGuard intégré',
-          desc: "Le routeur se connecte de manière sécurisée à notre serveur sans adresse IP publique. Tout est automatisé via un simple script à copier-coller.",
-        },
-        {
-          icon: Server,
-          title: 'Gestion multi-routeurs',
-          desc: "Gérez tous vos points d'accès depuis un tableau de bord unique, où que vous soyez dans le monde.",
-        },
-        {
-          icon: Palette,
-          title: 'Portail captif sur mesure',
-          desc: 'Personnalisez entièrement le portail client : logo, couleurs, nom de votre WiFi, pour coller à votre image de marque.',
-        },
-      ],
-    },
-    {
-      icon: CreditCard,
-      title: 'Monétisation & Paiement',
-      subtitle: 'Vos ventes, automatisées',
-      items: [
-        {
-          icon: CreditCard,
-          title: 'Paiement 100 % automatisé',
-          desc: "Paiement mobile (Wave, Orange Money, etc. via PayDunya). Le client paie, la session s'active instantanément.",
-        },
-        {
-          icon: Wallet,
-          title: 'Portefeuille en temps réel',
-          desc: "Suivez vos revenus en temps réel. Chaque vente crédite votre compte après déduction d'une commission transparente.",
-        },
-        {
-          icon: Banknote,
-          title: 'Retrait direct',
-          desc: 'Retirez vos gains directement et de manière sécurisée vers votre compte Wave.',
-        },
-      ],
-    },
-    {
-      icon: QrCode,
-      title: 'Partage & Sessions',
-      subtitle: 'La force du système',
-      items: [
-        {
-          icon: QrCode,
-          title: "Codes d'accès & QR codes dynamiques",
-          desc: 'Plus besoin de créer des tickets à la main : le système génère des codes uniques.',
-        },
-        {
-          icon: Users,
-          title: 'Multi-appareils intelligent',
-          desc: "Un client peut acheter un forfait 2, 5 ou 10 appareils et partager son accès via un code ou un QR code, dans la limite définie.",
-        },
-        {
-          icon: Gauge,
-          title: 'Gestion des quotas',
-          desc: 'Définissez des limites de consommation journalière (Go) pour éviter les abus sur votre bande passante.',
-        },
-      ],
-    },
-  ];
-
-  const advantages = [
-    {
-      title: 'Sauvegarde automatique',
-      others: "Un abonnement mensuel pour sauvegarder la configuration de vos routeurs,",
-      ours: "Inclus. Votre script de configuration est généré à vie : routeur en panne ? Rachetez-en un, collez le script, tout est restauré en 2 minutes.",
-    },
-    {
-      title: "Codes d'accès illimités",
-      others: "Messages WhatsApp facturés à l'unité",
-      ours: "Générez autant de codes ou de QR codes que vous voulez. Le QR code et le ticket s'affichent directement sur l'écran du client, sans frais cachés.",
-    },
-    {
-      title: 'Répartition de charge',
-      others: "Une option facturée très cher.",
-      ours: "Une application optimisée pour une connexion directe et stable, sans frais exorbitants pour des fonctions réseau avancées dont la plupart des cybercafés n'ont pas besoin.",
-    },
-    {
-      title: 'Transparence tarifaire',
-      others: "Frais cachés sur les transactions, frais de mise en service",
-      ours: "Un prix fixe, tout inclus : jusqu'à 10 routeurs pour 6 500 F/mois. Pas de frais d'installation, et une commission de retrait claire de 5 % sur vos gains.",
-    },
-  ];
+  const current = showcases.find((s) => s.key === active)!;
+  const Diagram = current.Diagram;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-gray-100 scroll-smooth">
-      {/* ================= NAVBAR ================= */}
+    <div className="min-h-screen bg-[#0a0a0a] text-gray-100 scroll-smooth overflow-x-clip">
+      <style>{`
+        @keyframes lp-ok { 0%,30%{opacity:1} 34%,70%{opacity:0} 74%,100%{opacity:1} }
+        @keyframes lp-failcycle { 0%,30%{opacity:0} 34%,70%{opacity:1} 74%,100%{opacity:0} }
+        .lp-ok { animation: lp-ok 9s infinite; }
+        .lp-fail { animation: lp-failcycle 9s infinite; }
+        @keyframes lp-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        .lp-float { animation: lp-float 6s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .lp-ok,.lp-fail,.lp-float { animation: none; }
+          .lp-fail { opacity: 0; }
+        }
+      `}</style>
+
+      {/* ================= BARRE DU HAUT ================= */}
       <header
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? 'bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/10 shadow-xl'
-            : 'bg-transparent border-b border-transparent'
+        className={`fixed top-0 inset-x-0 z-50 pt-[env(safe-area-inset-top)] transition-all duration-300 ${
+          scrolled ? 'bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/10' : 'bg-transparent border-b border-transparent'
         }`}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-
-          <div className="flex items-center gap-3 sm:gap-6">
-            <Link
-              href="/login"
-              className="text-sm font-semibold text-gray-200 hover:text-amber-500 transition-colors"
-            >
-              Se connecter
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 active:opacity-80">
+            <span className="w-10 h-10 flex items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+              <BrandMark />
+            </span>
+            <span className="text-lg font-extrabold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">MbeejFepal</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/login" className="px-4 py-2 rounded-full text-sm font-bold text-gray-200 hover:text-white active:scale-95 transition-all">
+              Connexion
             </Link>
-            <Link
-              href="/register"
-              className="text-sm font-bold text-amber-500 hover:text-amber-400 transition-colors"
-            >
+            <Link href="/register" className="px-4 py-2 rounded-full text-sm font-extrabold bg-amber-500 text-black shadow-lg shadow-amber-500/20 active:scale-95 transition-all">
               S&apos;inscrire
             </Link>
           </div>
         </div>
       </header>
 
-      {/* ================= HERO : VIDEO + CARTES QUI DÉFILENT ================= */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
-        {/* Vidéo de fond */}
+      {/* ================= HERO ================= */}
+      <section className="relative min-h-[100dvh] flex items-center overflow-hidden">
         <video
           className="absolute inset-0 w-full h-full object-cover"
           autoPlay
@@ -261,298 +557,294 @@ export default function HomePage() {
         >
           <source src="/videos/wifi-zone.mp4" type="video/mp4" />
         </video>
+        <div className="absolute inset-0 bg-black/70" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(217,119,6,0.3)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(56,189,248,0.12)_0%,transparent_50%)]" />
+        <div className="absolute bottom-0 inset-x-0 h-48 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
 
-        {/* Voiles pour la lisibilité */}
-        <div className="absolute inset-0 bg-black/65" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(217,119,6,0.25)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(217,119,6,0.12)_0%,transparent_50%)]" />
-        <div className="absolute bottom-0 inset-x-0 h-40 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-6 flex flex-col items-center gap-6">
+          <motion.a
+            href="#nouveautes"
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-amber-300 active:scale-95 transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Nouveau · VLAN, Load balancing &amp; Failover
+            <ArrowRight className="w-3.5 h-3.5" />
+          </motion.a>
 
-        {/* Cartes : 2 par 2, aspirées puis remplacées */}
-        <div
-          className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 pt-24 pb-16"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
-        >
-          <div className="relative sm:min-h-[500px]">
-            <AnimatePresence mode="wait">
+          <div className="w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Gauche : téléphone + description */}
+            <div className="flex flex-col items-center text-center">
               <motion.div
-                key={page}
-                initial={{ opacity: 0, scale: 0.8, filter: 'blur(10px)' }}
-                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, scale: 0.3, filter: 'blur(14px)' }}
-                transition={{ duration: 0.6, ease: [0.45, 0, 0.2, 1] }}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+                initial={{ opacity: 0, y: 40, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.15 }}
+                className="lp-float"
               >
-                {features.slice(page * 3, page * 3 + 3).map((f, idx) => (
-                  <div
-                    key={f.title}
-                    className={`group relative overflow-hidden bg-gradient-to-br from-gray-900/90 to-black/90 backdrop-blur-md rounded-[32px] shadow-xl p-7 border border-white/10 hover:border-amber-500/50 transition-colors duration-300 ${
-                      idx === 2 ? 'sm:col-span-2 sm:w-[calc(50%-0.75rem)] sm:justify-self-center' : ''
-                    }`}
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-150 transition-transform duration-500" />
-                    <div className="relative z-10">
-                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 mb-5">
-                        <f.icon className="w-6 h-6 text-amber-500" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-                      <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
-                    </div>
-                  </div>
-                ))}
+                <PhoneMock />
               </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Indicateurs */}
-          <div className="mt-8 flex items-center justify-center gap-2">
-            {Array.from({ length: FEATURE_PAGES }).map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={`Afficher le groupe ${i + 1}`}
-                onClick={() => setPage(i)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  i === page ? 'w-8 bg-amber-500' : 'w-2 bg-white/30 hover:bg-white/50'
-                }`}
-              />
-            ))}
+              <div className="mt-6 max-w-sm">
+                <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-500">Réseau avancé</p>
+                <h3 className="mt-1 text-xl font-extrabold text-white leading-tight">VLAN, Multi-WAN et Failover.</h3>
+                <p className="mt-1 text-sm text-gray-300">Pilotez tout depuis votre téléphone.</p>
+              </div>
+            </div>
+            {/* Droite : paiement + description + image */}
+            <PaymentPanel />
           </div>
         </div>
       </section>
 
-      {/* ================= SECTION : COMMENT ÇA MARCHE (timeline verticale, image en fond) ================= */}
-      <section
-        id="comment-ca-marche"
-        className="relative py-20 sm:py-28 px-4 sm:px-6 overflow-hidden"
-      >
-        {/* Image de fond */}
-        <div className="absolute inset-0">
-          <Image
-            src="/videos/wifi-zone-poster.jpg"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover"
-            aria-hidden="true"
-          />
+      {/* ================= NOUVEAUTÉS : SCHÉMAS ANIMÉS ================= */}
+      <section id="nouveautes" className="relative py-20 sm:py-28 px-4 sm:px-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(217,119,6,0.12)_0%,transparent_55%)] pointer-events-none" />
+        <div className="relative max-w-4xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={fadeUp} transition={{ duration: 0.6 }} className="text-center mb-8">
+            <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 text-amber-400 px-4 py-1.5 rounded-full text-[11px] font-extrabold tracking-widest uppercase mb-4">
+              <Sparkles className="w-3.5 h-3.5" /> Nouveautés
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white">Le réseau avancé,<br className="sm:hidden" /> sans la complexité.</h2>
+          </motion.div>
+
+          {/* Sélecteur */}
+          <div role="tablist" className="grid grid-cols-3 bg-white/5 border border-white/10 rounded-2xl p-1 mb-5 max-w-xl mx-auto">
+            {showcases.map((s) => {
+              const on = s.key === active;
+              const Icon = s.icon;
+              return (
+                <button
+                  key={s.key}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => {
+                    setActive(s.key);
+                    setUserPicked(true);
+                  }}
+                  className={`flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                    on ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-gray-400'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Scène */}
+          <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-gray-900 to-black shadow-2xl">
+            <div className="absolute inset-0 opacity-60 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:26px_26px]" />
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-48 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+
+            <div className="relative px-3 sm:px-8 pt-8 pb-4">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={active}
+                  initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.98 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Diagram />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            <div className="relative px-5 sm:px-8 pb-7 text-center">
+              <AnimatePresence mode="wait">
+                <motion.div key={active} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">{current.title}</h3>
+                  <p className="mt-2 text-gray-400">{current.desc}</p>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    {current.chips.map((c) => (
+                      <span key={c} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-gray-200">
+                        <Check className="w-3.5 h-3.5 text-amber-500" strokeWidth={3} /> {c}
+                      </span>
+                    ))}
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
+      </section>
 
-        {/* Voile sombre pour la lisibilité */}
-        <div className="absolute inset-0 bg-black/75" />
+      {/* ================= TOUT EST INCLUS : TUILES ================= */}
+      <section className="relative py-16 sm:py-24 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={fadeUp} transition={{ duration: 0.6 }} className="text-center mb-10">
+            <span className="inline-block bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-[11px] font-extrabold tracking-widest uppercase mb-4">
+              Tout est inclus
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Tout ce qu&apos;il faut, au même endroit.</h2>
+          </motion.div>
 
-        {/* Halo ambré pour conserver l'identité visuelle */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(217,119,6,0.18)_0%,transparent_60%)] pointer-events-none" />
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            {tiles.map((t, i) => {
+              const Icon = t.icon;
+              return (
+                <motion.div
+                  key={t.label}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={{ duration: 0.4, delay: (i % 3) * 0.07 }}
+                  className="flex flex-col items-center text-center gap-3 rounded-[24px] bg-gradient-to-br from-gray-900 to-black border border-white/10 p-4 sm:p-6 active:scale-95 transition-transform"
+                >
+                  <span className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center">
+                    <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold text-gray-100 leading-tight">{t.label}</span>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-        <div className="relative max-w-2xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={fadeUp}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-14"
-          >
-            <span className="inline-block bg-white/10 border border-white/15 text-amber-500 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-4 backdrop-blur-sm">
+      {/* ================= EN 3 ÉTAPES ================= */}
+      <section className="relative py-20 sm:py-28 px-4 sm:px-6 overflow-hidden">
+        <div className="absolute inset-0">
+          <Image src="/videos/wifi-zone-poster.jpg" alt="" fill sizes="100vw" className="object-cover" aria-hidden="true" />
+        </div>
+        <div className="absolute inset-0 bg-black/80" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(217,119,6,0.2)_0%,transparent_60%)] pointer-events-none" />
+
+        <div className="relative max-w-3xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={fadeUp} transition={{ duration: 0.6 }} className="text-center mb-12">
+            <span className="inline-block bg-white/10 border border-white/15 text-amber-500 px-4 py-1.5 rounded-full text-[11px] font-extrabold tracking-widest uppercase mb-4 backdrop-blur-sm">
               Comment ça marche
             </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white drop-shadow-lg">
-              Lancez-vous en 3 étapes
-            </h2>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Lancez-vous en 3 étapes.</h2>
           </motion.div>
 
-          <div ref={timelineRef} className="relative">
-            {/* Trait vertical : fond + remplissage qui suit le défilement */}
-            <div className="absolute left-3 top-3 bottom-3 w-px bg-white/10">
-              <div
-                className="w-full bg-gradient-to-b from-amber-500 to-amber-600 shadow-[0_0_8px_rgba(217,119,6,0.8)] transition-[height] duration-150 ease-out"
-                style={{ height: `${progress * 100}%` }}
-              />
-            </div>
-
-            <div className="space-y-24 sm:space-y-32 py-4">
-              {steps.map((s, i) => (
-                <div key={s.title} className="relative pl-12">
-                  {/* Point sur le trait */}
-                  <motion.div
-                    initial={{ scale: 0, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    viewport={{ once: true, margin: '0px 0px -30% 0px' }}
-                    transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-                    className="absolute left-0 top-6 w-6 h-6 rounded-full bg-[#0a0a0a] border-2 border-amber-500 flex items-center justify-center shadow-[0_0_16px_rgba(217,119,6,0.5)]"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  </motion.div>
-
-                  {/* Carte : apparaît quand on arrive à son niveau */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 60, scale: 0.95 }}
-                    whileInView={{ opacity: 1, x: 0, scale: 1 }}
-                    viewport={{ once: true, margin: '0px 0px -30% 0px' }}
-                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                    className="relative overflow-hidden bg-gradient-to-br from-gray-900/95 to-black/95 backdrop-blur-sm rounded-[32px] border border-white/10 hover:border-amber-500/40 transition-colors p-6 sm:p-7 shadow-xl"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                    <div className="relative z-10">
-                      <h3 className="text-lg sm:text-xl font-semibold text-white mb-1.5">{s.title}</h3>
-                      <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
-                    </div>
-                  </motion.div>
-                </div>
-              ))}
-            </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {steps.map((s, i) => {
+              const Icon = s.icon;
+              return (
+                <motion.div
+                  key={s.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={{ duration: 0.5, delay: i * 0.12 }}
+                  className="relative overflow-hidden rounded-[28px] bg-black/50 backdrop-blur-md border border-white/10 p-5"
+                >
+                  <span className="absolute -right-2 -top-4 text-[88px] leading-none font-black text-white/[0.06] select-none">{i + 1}</span>
+                  <span className="relative w-12 h-12 rounded-2xl bg-amber-500 text-black flex items-center justify-center shadow-lg shadow-amber-500/25">
+                    <Icon className="w-6 h-6" />
+                  </span>
+                  <h3 className="relative mt-4 font-extrabold text-white leading-snug">{s.title}</h3>
+                  <p className="relative mt-1 text-sm text-gray-400">{s.desc}</p>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* ================= SECTION : FONCTIONNALITÉS TECHNIQUES ================= */}
-      <section id="fonctionnalites" className="relative py-20 sm:py-28 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={fadeUp}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-14"
-          >
-            <span className="inline-block bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-4">
-              Fonctionnalités techniques
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">
-              Tout ce qu&apos;il faut pour exploiter votre WiFi
-            </h2>
-            <p className="mt-4 text-gray-400 max-w-2xl mx-auto">
-              Du réseau au paiement, en passant par le partage d&apos;accès : tout est pensé pour fonctionner sans configuration compliquée.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {techGroups.map((g, gi) => (
-              <motion.div
-                key={g.title}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-60px' }}
-                variants={fadeUp}
-                transition={{ duration: 0.5, delay: gi * 0.12 }}
-                className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] border border-white/10 shadow-xl p-7"
-              >
-                <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 shrink-0">
-                      <g.icon className="w-6 h-6 text-amber-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white leading-tight">{g.title}</h3>
-                      <p className="text-xs text-amber-500 font-medium mt-0.5">{g.subtitle}</p>
-                    </div>
-                  </div>
-
-                  <ul className="divide-y divide-white/5">
-                    {g.items.map((it) => (
-                      <li key={it.title} className="py-4 first:pt-0 last:pb-0 flex gap-3">
-                        <it.icon className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                        <div>
-                          <h4 className="text-sm font-semibold text-white mb-1">{it.title}</h4>
-                          <p className="text-xs text-gray-400 leading-relaxed">{it.desc}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ================= SECTION : NOS AVANTAGES ================= */}
-      <section id="avantages" className="relative py-20 sm:py-28 px-4 sm:px-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(217,119,6,0.08)_0%,transparent_60%)] pointer-events-none" />
-        <div className="relative max-w-4xl mx-auto">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={fadeUp}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-14"
-          >
-            <span className="inline-block bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide uppercase mb-4">
+      {/* ================= FACE AUX AUTRES ================= */}
+      <section className="relative py-20 sm:py-28 px-4 sm:px-6">
+        <div className="relative max-w-3xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} variants={fadeUp} transition={{ duration: 0.6 }} className="text-center mb-10">
+            <span className="inline-block bg-white/5 border border-white/10 text-amber-500 px-4 py-1.5 rounded-full text-[11px] font-extrabold tracking-widest uppercase mb-4">
               Nos avantages
             </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white">
-              Face aux autres solutions
-            </h2>
-            <p className="mt-4 text-gray-400 max-w-2xl mx-auto">
-              Ce qui est souvent facturé en option ou en extra est inclus par défaut chez MbeejFepal.
-            </p>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Face aux autres solutions.</h2>
           </motion.div>
 
-          <div className="space-y-4">
-            {advantages.map((a, i) => (
+          <div className="rounded-[28px] bg-gradient-to-br from-gray-900 to-black border border-white/10 overflow-hidden divide-y divide-white/5 shadow-xl">
+            <div className="hidden sm:grid grid-cols-[1.1fr_1fr_1.4fr] gap-4 px-6 py-3 text-[11px] font-extrabold uppercase tracking-widest">
+              <span />
+              <span className="text-gray-500">Les autres</span>
+              <span className="text-amber-500">MbeejFepal</span>
+            </div>
+            {comparison.map((c, i) => (
               <motion.div
-                key={a.title}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-40px' }}
-                variants={fadeUp}
-                transition={{ duration: 0.5, delay: i * 0.08 }}
-                className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] border border-white/10 hover:border-amber-500/40 transition-colors shadow-xl p-6 sm:p-7"
+                key={c.title}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ duration: 0.4, delay: i * 0.06 }}
+                className="px-5 sm:px-6 py-4 sm:grid sm:grid-cols-[1.1fr_1fr_1.4fr] sm:gap-4 sm:items-center"
               >
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                    <Check className="w-3.5 h-3.5 text-amber-500" strokeWidth={3} />
-                  </span>
-                  {a.title}
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="px-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
-                      Les autres
-                    </p>
-                    <p className="text-sm text-gray-400 leading-relaxed">{a.others}</p>
-                  </div>
-                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-500 mb-1.5">
-                      Chez MbeejFepal
-                    </p>
-                    <p className="text-sm text-gray-200 leading-relaxed">{a.ours}</p>
-                  </div>
-                </div>
+                <p className="font-extrabold text-white mb-2 sm:mb-0">{c.title}</p>
+                <p className="flex items-start gap-2 text-sm text-gray-500 mb-1.5 sm:mb-0">
+                  <X className="w-4 h-4 text-red-400/80 shrink-0 mt-0.5" strokeWidth={3} />
+                  {c.others}
+                </p>
+                <p className="flex items-start gap-2 text-sm font-semibold text-gray-100">
+                  <Check className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" strokeWidth={3} />
+                  {c.ours}
+                </p>
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
 
-          <div className="mt-10 text-center">
+      {/* ================= APPEL FINAL ================= */}
+      <section className="relative px-4 sm:px-6 pb-24 sm:pb-28">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
+          variants={fadeUp}
+          transition={{ duration: 0.6 }}
+          className="relative max-w-3xl mx-auto overflow-hidden rounded-[36px] p-8 sm:p-12 text-center border border-amber-500/30 bg-gradient-to-br from-amber-500/25 via-gray-900 to-black shadow-2xl"
+        >
+          <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-amber-500/25 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-16 w-64 h-64 rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
+          <div className="relative">
+            <span className="mx-auto w-16 h-16 rounded-3xl bg-white/10 border border-white/15 text-amber-400 flex items-center justify-center mb-5">
+              <Network className="w-8 h-8" />
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">Prêt à lancer votre WiFi zone ?</h2>
+            <p className="mt-3 text-gray-300">Créez votre compte et connectez votre premier routeur.</p>
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 px-7 py-3 bg-[#d97706] text-white font-bold rounded-xl hover:bg-[#b45309] transition-all shadow-lg shadow-amber-600/20"
+              className="mt-7 h-14 px-10 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-base shadow-xl shadow-amber-600/30 active:scale-[0.97] transition-all"
             >
-              Créer mon compte <ArrowRight className="w-4 h-4" />
+              Créer mon compte <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* ================= FOOTER ================= */}
-      <footer className="relative border-t border-white/10 bg-[#0f172a]/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 text-center">
-          <h4 className="text-sm font-semibold text-white mb-4">Contact</h4>
+      <footer className="relative border-t border-white/10 bg-[#0f172a]/60 pb-24 md:pb-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 text-center">
           <p className="flex items-center justify-center gap-2 text-sm text-gray-400">
             <Mail className="w-4 h-4 text-amber-500" />
             {/* Remplacez par votre vraie adresse */}
             contact@mbeejfepal.com
           </p>
-
-          <div className="mt-10 pt-6 border-t border-white/10 text-xs text-gray-500">
-            © 2026 MbeejFepal. Tous droits réservés.
-          </div>
+          <div className="mt-6 pt-5 border-t border-white/10 text-xs text-gray-500">© 2026 MbeejFepal. Tous droits réservés.</div>
         </div>
       </footer>
+
+      {/* ================= BARRE D'ACTION MOBILE ================= */}
+      <AnimatePresence>
+        {showBar && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            className="md:hidden fixed bottom-0 inset-x-0 z-40 px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/90 to-transparent"
+          >
+            <Link
+              href="/register"
+              className="h-14 w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold shadow-xl shadow-amber-600/30 active:scale-[0.98] transition-all"
+            >
+              Créer mon compte <ArrowRight className="w-5 h-5" />
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
