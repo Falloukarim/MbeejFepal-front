@@ -23,6 +23,10 @@ import {
   Calendar,
   Clock,
   Users,
+  Globe,
+  Layers,
+  Plus,
+  Info,
   Router as RouterIcon,
 } from 'lucide-react';
 
@@ -30,9 +34,15 @@ import {
 interface Router { id: number; name: string; }
 interface Profile { id: number; name: string; rate_limit: string; price: number; duration_days: number; }
 interface User { id: number; name: string; phone: string; username: string; password: string; status: string; expires_at: string; profile_name: string; rate_limit: string; }
+interface WAN { name: string; interface: string; gateway: string; weight: number; }
+
+type TabKey = 'users' | 'profiles' | 'settings' | 'vlan' | 'wan';
 
 const inputCls =
   'w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 p-3.5 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 transition-all';
+
+const primaryBtn =
+  'w-full h-14 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100';
 
 // ───────── Feuille modale façon mobile (bottom sheet) ─────────
 function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
@@ -52,6 +62,43 @@ function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () 
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+// ───────── Carte de formulaire (onglets de configuration) ─────────
+function FormCard({ icon, title, subtitle, children }: { icon: ReactNode; title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <div className="pppoe-rise relative overflow-hidden bg-gradient-to-br from-gray-900 to-black border border-white/10 rounded-[28px] p-5 sm:p-8 shadow-2xl">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="relative flex items-center gap-3 mb-5">
+        <div className="w-12 h-12 shrink-0 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg font-extrabold text-white leading-tight">{title}</h2>
+          {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
+
+function Notice({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 mb-5 text-sm text-amber-200">
+      <Info className="w-5 h-5 shrink-0 mt-0.5 text-amber-400" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      <label className="text-xs font-semibold text-gray-400 mb-1.5 block">{label}</label>
+      {children}
     </div>
   );
 }
@@ -106,7 +153,7 @@ function ProfilePicker({ profiles, value, onChange }: { profiles: Profile[]; val
 }
 
 export default function PPPoEPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'profiles' | 'settings'>('users');
+  const [activeTab, setActiveTab] = useState<TabKey>('users');
 
   const [routers, setRouters] = useState<Router[]>([]);
   const [selectedRouter, setSelectedRouter] = useState<number | null>(null);
@@ -132,12 +179,23 @@ export default function PPPoEPage() {
   const [clientPhone, setClientPhone] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<number | ''>('');
 
+  // Config PPPoE Standard
   const [cfgPort, setCfgPort] = useState('ether5');
   const [cfgService, setCfgService] = useState('MBEEJ_PPPOE');
   const [cfgPool, setCfgPool] = useState('pool_pppoe');
   const [cfgRange, setCfgRange] = useState('10.50.0.2-10.50.255.254');
   const [cfgGateway, setCfgGateway] = useState('10.50.0.1/16');
   const [cfgDns, setCfgDns] = useState('1.1.1.1,8.8.8.8');
+
+  // Config VLAN
+  const [vlanTrunkPort, setVlanTrunkPort] = useState('ether5');
+  const [vlanPppoeId, setVlanPppoeId] = useState('20');
+  const [vlanHotspotId, setVlanHotspotId] = useState('30');
+
+  // Config Load Balancing
+  const [wans, setWans] = useState<WAN[]>([
+    { name: 'Starlink 1', interface: 'ether1', gateway: '', weight: 1 }
+  ]);
 
   useEffect(() => {
     api.get('/routers').then(res => {
@@ -168,6 +226,7 @@ export default function PPPoEPage() {
     }
   };
 
+  // --- Actions ---
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const download = Number(profDownload);
@@ -196,11 +255,7 @@ export default function PPPoEPage() {
       setIsProfileModalOpen(false);
       setProfName(''); setProfDownload('10'); setProfUpload('10'); setProfPrice(''); setProfDuration('30');
       fetchData();
-    } catch (e: any) {
-      toast.error(e.response?.data || 'Erreur forfait');
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (e: any) { toast.error(e.response?.data || 'Erreur forfait'); } finally { setIsSubmitting(false); }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -218,9 +273,7 @@ export default function PPPoEPage() {
       setIsUserModalOpen(false);
       setClientName(''); setClientPhone(''); setSelectedProfile('');
       fetchData();
-    } catch (e:any) {
-      toast.error(e.response?.data || 'Erreur abonné');
-    } finally { setIsSubmitting(false); }
+    } catch (e: any) { toast.error(e.response?.data || 'Erreur abonné'); } finally { setIsSubmitting(false); }
   };
 
   const handleSetupInfrastructure = async (e: React.FormEvent) => {
@@ -229,10 +282,70 @@ export default function PPPoEPage() {
       await api.post(`/api/pppoe/setup/${selectedRouter}`, {
         port: cfgPort, service_name: cfgService, pool_name: cfgPool, client_range: cfgRange, gateway_ip: cfgGateway, dns: cfgDns
       });
-      toast.success('Infrastructure réseau configurée !');
-    } catch (e: any) {
-      toast.error(e.response?.data || 'Erreur de configuration');
-    } finally { setIsSubmitting(false); }
+      toast.success('Infrastructure PPPoE configurée !');
+    } catch (e: any) { toast.error(e.response?.data || 'Erreur de configuration'); } finally { setIsSubmitting(false); }
+  };
+
+  const handleSetupVLAN = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pppoeId = Number(vlanPppoeId);
+    const hotspotId = Number(vlanHotspotId);
+
+    if (![pppoeId, hotspotId].every((id) => Number.isInteger(id) && id >= 1 && id <= 4094)) {
+      toast.error('Les IDs VLAN doivent être compris entre 1 et 4094.');
+      return;
+    }
+    if (pppoeId === hotspotId) {
+      toast.error('Les VLAN PPPoE et Hotspot doivent avoir des IDs différents.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.post(`/api/pppoe/setup-vlan/${selectedRouter}`, {
+        trunk_port: vlanTrunkPort,
+        pppoe_vlan_id: pppoeId,
+        hotspot_vlan_id: hotspotId
+      });
+      toast.success('Configuration VLAN appliquée !');
+    } catch (e: any) { toast.error(e.response?.data || 'Erreur configuration VLAN'); } finally { setIsSubmitting(false); }
+  };
+
+const handleSetupLoadBalancing = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (wans.length < 2) {
+    toast.error('Ajoutez au moins 2 connexions WAN pour le Load Balancing.');
+    return;
+  }
+  if (wans.some(w => !w.gateway)) {
+    toast.error('Veuillez renseigner la passerelle pour chaque WAN.');
+    return;
+  }
+  setIsSubmitting(true);
+  try {
+    // ✅ On envoie le format attendu par le nouveau Handler
+    await api.post(`/api/pppoe/setup-loadbalancing/${selectedRouter}`, {
+      wans: wans,
+      lan_interfaces: ["bridge-lan", "vlan-pppoe", "vlan-hotspot"] // Valeur par défaut
+    });
+    toast.success('Load Balancing activé avec succès !');
+  } catch (e: any) {
+    toast.error(e.response?.data || 'Erreur configuration Load Balancing');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+  const updateWan = (index: number, patch: Partial<WAN>) => {
+    setWans((prev) => prev.map((w, i) => (i === index ? { ...w, ...patch } : w)));
+  };
+
+  const addWan = () => {
+    setWans((prev) => [...prev, { name: `WAN ${prev.length + 1}`, interface: `ether${prev.length + 1}`, gateway: '', weight: 1 }]);
+  };
+
+  const removeWan = (index: number) => {
+    setWans((prev) => prev.filter((_, i) => i !== index));
   };
 
   const toggleStatus = async (u: User) => {
@@ -253,24 +366,22 @@ export default function PPPoEPage() {
     toast.success('Identifiants copiés !');
   };
 
-  // Génère le lien WhatsApp
   const getWhatsAppLink = (phone: string, username: string, password: string) => {
     if (!phone) return '#';
-    // Nettoie le numéro (enlève les espaces, le +, le 00, et le 0 initial)
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
-    // Ajoute l'indicatif du Sénégal (221) si le numéro fait 9 chiffres
     if (cleanPhone.length === 9) cleanPhone = '221' + cleanPhone;
-
-    const message = `Bonjour ${username},\n\nVoici vos identifiants de connexion Internet :\n👤 Utilisateur : ${username}\n🔑 Mot de passe : ${password}\n\nMerci de votre confiance !`;
+    const message = `Bonjour,\n\nVoici vos identifiants de connexion Internet :\n👤 Utilisateur : ${username}\n🔑 Mot de passe : ${password}\n\nMerci de votre confiance !`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
-  const tabs: { key: 'users' | 'profiles' | 'settings'; label: string; icon: ReactNode }[] = [
+  const tabs: { key: TabKey; label: string; icon: ReactNode }[] = [
     { key: 'users', label: 'Abonnés', icon: <Users className="w-4 h-4" /> },
     { key: 'profiles', label: 'Forfaits', icon: <Tag className="w-4 h-4" /> },
-    { key: 'settings', label: 'Réseau', icon: <Settings className="w-4 h-4" /> },
+    { key: 'settings', label: 'PPPoE', icon: <Settings className="w-4 h-4" /> },
+    { key: 'vlan', label: 'VLANs', icon: <Layers className="w-4 h-4" /> },
+    { key: 'wan', label: 'Multi-WAN', icon: <Globe className="w-4 h-4" /> },
   ];
 
   const statusOf = (u: User) => {
@@ -295,24 +406,26 @@ export default function PPPoEPage() {
         {/* En-tête */}
         <header className="mb-5">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
-            <Network className="w-3.5 h-3.5" /> PPPoE RÉSIDENTIEL
+            <Network className="w-3.5 h-3.5" /> PPPoE & RÉSEAU
           </div>
-          <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Gestion PPPoE</h1>
+          <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Gestion réseau avancée</h1>
           <p className="text-sm text-gray-400 mt-1">
             {users.length} abonné{users.length > 1 ? 's' : ''} · {profiles.length} forfait{profiles.length > 1 ? 's' : ''}
           </p>
         </header>
 
-        {/* Onglets (segmented control) */}
-        <div role="tablist" className="grid grid-cols-3 bg-white/5 border border-white/10 rounded-2xl p-1 mb-4">
+        {/* Onglets : défilent horizontalement sur mobile */}
+        <div role="tablist" className="mb-4 -mx-4 px-4 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((t) => (
             <button
               key={t.key}
               role="tab"
               aria-selected={activeTab === t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 ${
-                activeTab === t.key ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-gray-400'
+              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold border transition-all active:scale-95 ${
+                activeTab === t.key
+                  ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/20'
+                  : 'bg-white/5 text-gray-400 border-white/10'
               }`}
             >
               {t.icon}
@@ -500,43 +613,161 @@ export default function PPPoEPage() {
           </>
         )}
 
-        {/* ───────── ONGLET : CONFIGURATION ───────── */}
+        {/* ───────── ONGLET : CONFIG PPPoE ───────── */}
         {activeTab === 'settings' && (
-          <div className="bg-gradient-to-br from-gray-900 to-black border border-white/10 rounded-[28px] p-5 sm:p-8 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-            <h2 className="relative z-10 text-xl font-extrabold text-white mb-1 flex items-center gap-2"><Settings className="text-amber-500" /> Configuration réseau</h2>
-            <p className="relative z-10 text-sm text-gray-400 mb-6">Paramètres PPPoE appliqués sur le routeur sélectionné.</p>
-            <form onSubmit={handleSetupInfrastructure} className="relative z-10 space-y-4">
+          <FormCard icon={<Settings className="w-6 h-6" />} title="Configuration PPPoE standard" subtitle="Paramètres appliqués sur le routeur sélectionné.">
+            <form onSubmit={handleSetupInfrastructure} className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
-                {[
-                  { label: 'Port physique (ex: ether5)', value: cfgPort, set: setCfgPort },
-                  { label: 'Nom du service', value: cfgService, set: setCfgService },
-                  { label: 'Nom du pool', value: cfgPool, set: setCfgPool },
-                  { label: 'Plage IP clients', value: cfgRange, set: setCfgRange },
-                  { label: 'IP passerelle', value: cfgGateway, set: setCfgGateway },
-                  { label: 'Serveurs DNS', value: cfgDns, set: setCfgDns },
-                ].map((f) => (
-                  <div key={f.label}>
-                    <label className="text-xs font-semibold text-gray-400 mb-1.5 block">{f.label}</label>
-                    <input value={f.value} onChange={(e) => f.set(e.target.value)} className={inputCls} required />
-                  </div>
-                ))}
+                <Field label="Port physique (ex: ether5)">
+                  <input value={cfgPort} onChange={e => setCfgPort(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="Nom du service">
+                  <input value={cfgService} onChange={e => setCfgService(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="Pool d'IP">
+                  <input value={cfgPool} onChange={e => setCfgPool(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="Plage IP clients">
+                  <input value={cfgRange} onChange={e => setCfgRange(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="IP passerelle">
+                  <input value={cfgGateway} onChange={e => setCfgGateway(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="Serveurs DNS">
+                  <input value={cfgDns} onChange={e => setCfgDns(e.target.value)} className={inputCls} required />
+                </Field>
               </div>
-              <button type="submit" disabled={isSubmitting} className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl mt-4 shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98] disabled:opacity-50">
-                {isSubmitting ? 'Configuration en cours...' : 'Activer / Mettre à jour PPPoE sur le routeur'}
+              <button type="submit" disabled={isSubmitting} className={`${primaryBtn} mt-2`}>
+                {isSubmitting ? 'Configuration...' : 'Activer PPPoE'}
               </button>
             </form>
-          </div>
+          </FormCard>
+        )}
+
+        {/* ───────── ONGLET : VLANs ───────── */}
+        {activeTab === 'vlan' && (
+          <FormCard icon={<Layers className="w-6 h-6" />} title="Configuration VLANs (Trunk)" subtitle="Un seul câble, deux réseaux isolés.">
+            <Notice>
+              Séparez le trafic Hotspot et PPPoE sur un seul câble physique (Trunk). Cela permet d'isoler les réseaux de manière sécurisée.
+            </Notice>
+
+            {/* Aperçu du trunk */}
+            <div className="mb-5 rounded-2xl bg-black/40 border border-white/5 p-4">
+              <div className="flex items-center justify-center">
+                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-gray-200">
+                  <Network className="w-3.5 h-3.5 text-amber-500" /> Trunk · <span className="font-mono text-amber-400">{vlanTrunkPort || '—'}</span>
+                </span>
+              </div>
+              <div className="mx-auto h-4 w-px bg-gradient-to-b from-white/30 to-transparent" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3 text-center">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">PPPoE</p>
+                  <p className="text-lg font-black text-amber-400 tabular-nums">VLAN {vlanPppoeId || '—'}</p>
+                </div>
+                <div className="rounded-2xl bg-sky-500/10 border border-sky-500/20 p-3 text-center">
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Hotspot</p>
+                  <p className="text-lg font-black text-sky-400 tabular-nums">VLAN {vlanHotspotId || '—'}</p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSetupVLAN} className="space-y-4">
+              <Field label="Port Trunk (ex: ether5)">
+                <input value={vlanTrunkPort} onChange={e => setVlanTrunkPort(e.target.value)} className={inputCls} required />
+              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="ID VLAN PPPoE">
+                  <input type="number" inputMode="numeric" min="1" max="4094" value={vlanPppoeId} onChange={e => setVlanPppoeId(e.target.value)} className={inputCls} required />
+                </Field>
+                <Field label="ID VLAN Hotspot">
+                  <input type="number" inputMode="numeric" min="1" max="4094" value={vlanHotspotId} onChange={e => setVlanHotspotId(e.target.value)} className={inputCls} required />
+                </Field>
+              </div>
+              <button type="submit" disabled={isSubmitting} className={`${primaryBtn} mt-2`}>
+                {isSubmitting ? 'Configuration...' : 'Appliquer la configuration VLAN'}
+              </button>
+            </form>
+          </FormCard>
+        )}
+
+        {/* ───────── ONGLET : MULTI-WAN ───────── */}
+        {activeTab === 'wan' && (
+          <FormCard icon={<Globe className="w-6 h-6" />} title="Load Balancing & Failover" subtitle="Multi-WAN : répartition du trafic sur plusieurs lignes.">
+            <Notice>
+              Répartissez le trafic Internet sur plusieurs lignes (ex: Starlink). Si une ligne tombe, le trafic bascule automatiquement sur les autres.
+            </Notice>
+
+            <form onSubmit={handleSetupLoadBalancing} className="space-y-3">
+              {wans.map((wan, index) => (
+                <div key={index} className="pppoe-rise rounded-2xl bg-white/5 border border-white/10 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="inline-flex items-center gap-2 text-sm font-extrabold text-white">
+                      <span className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center text-xs">{index + 1}</span>
+                      Connexion WAN
+                    </span>
+                    {wans.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeWan(index)}
+                        aria-label={`Supprimer la connexion ${index + 1}`}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 text-red-400 active:scale-95 transition-all"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <Field label="Nom (ex: Starlink)">
+    <input value={wan.name} onChange={e => updateWan(index, { name: e.target.value })} className={inputCls} required />
+  </Field>
+  <Field label="Interface (ex: ether1)">
+    <input value={wan.interface} onChange={e => updateWan(index, { interface: e.target.value })} className={inputCls} required />
+  </Field>
+  <Field label="Gateway">
+    <input value={wan.gateway} onChange={e => updateWan(index, { gateway: e.target.value })} className={inputCls} placeholder="192.168.1.1" inputMode="decimal" required />
+  </Field>
+  {/* ✅ NOUVEAU CHAMP POIDS */}
+  <Field label="Poids (Weight)">
+    <input 
+      type="number" 
+      min="1" 
+      max="10"
+      value={wan.weight} 
+      onChange={e => updateWan(index, { weight: Number(e.target.value) })} 
+      className={inputCls} 
+      required 
+    />
+  </Field>
+</div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addWan}
+                className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-amber-500/30 text-amber-500 text-sm font-bold bg-amber-500/5 active:scale-[0.98] transition-all"
+              >
+                <Plus className="w-4 h-4" /> Ajouter une connexion WAN
+              </button>
+
+              {wans.length < 2 && (
+                <p className="text-xs text-amber-300/90 text-center">Ajoutez au moins 2 connexions WAN pour activer le Load Balancing.</p>
+              )}
+
+              <button type="submit" disabled={isSubmitting} className={`${primaryBtn} mt-2`}>
+                {isSubmitting ? 'Configuration en cours...' : 'Activer le Load Balancing'}
+              </button>
+            </form>
+          </FormCard>
         )}
       </div>
 
       {/* ───────── MODALS ───────── */}
       <Sheet open={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Nouveau forfait PPPoE">
         <form onSubmit={handleCreateProfile} className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Nom du forfait</label>
+          <Field label="Nom du forfait">
             <input placeholder="Ex : Fibre 20M" required value={profName} onChange={e => setProfName(e.target.value)} className={inputCls} />
-          </div>
+          </Field>
 
           <div>
             <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Débits internet (Mbps)</label>
@@ -558,17 +789,15 @@ export default function PPPoEPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Prix (FCFA)</label>
+            <Field label="Prix (FCFA)">
               <input type="number" min="0" step="1" placeholder="Prix" required value={profPrice} onChange={e => setProfPrice(e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Durée (jours)</label>
+            </Field>
+            <Field label="Durée (jours)">
               <input type="number" min="1" step="1" placeholder="30" required value={profDuration} onChange={e => setProfDuration(e.target.value)} className={inputCls} />
-            </div>
+            </Field>
           </div>
 
-          <button type="submit" disabled={isSubmitting} className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl mt-2 shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98] disabled:opacity-50">
+          <button type="submit" disabled={isSubmitting} className={`${primaryBtn} mt-2`}>
             {isSubmitting ? 'Création...' : 'Créer le forfait'}
           </button>
         </form>
@@ -576,14 +805,12 @@ export default function PPPoEPage() {
 
       <Sheet open={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title="Nouvel abonné PPPoE">
         <form onSubmit={handleCreateUser} className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Nom complet</label>
+          <Field label="Nom complet">
             <input placeholder="Nom complet du client" required value={clientName} onChange={e => setClientName(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-400 mb-1.5 block">Téléphone</label>
+          </Field>
+          <Field label="Téléphone">
             <input type="tel" inputMode="tel" placeholder="Ex : 771234567" required value={clientPhone} onChange={e => setClientPhone(e.target.value)} className={inputCls} />
-          </div>
+          </Field>
 
           <div>
             <label className="text-xs font-semibold text-gray-400 mb-2 block">Forfait</label>
@@ -593,7 +820,7 @@ export default function PPPoEPage() {
           <button
             type="submit"
             disabled={isSubmitting || profiles.length === 0 || selectedProfile === ''}
-            className="w-full h-14 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl mt-2 shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+            className={`${primaryBtn} mt-2`}
           >
             {isSubmitting ? 'Génération en cours...' : 'Générer les identifiants'}
           </button>
