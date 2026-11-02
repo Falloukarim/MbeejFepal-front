@@ -32,7 +32,21 @@ export interface Router {
   primary_color?: string;
   logo_url?: string;
 }
+// ==========================================
+// QUOTA JOURNALIER
+// ==========================================
+export interface QuotaStatus {
+  daily_quota_gb: number;
+  used_gb: number;
+  percent: number;
+  is_blocked: boolean;
+  date: string;
+}
 
+export const getQuotaStatus = async (routerId: number): Promise<QuotaStatus> => {
+  const response = await api.get<QuotaStatus>(`/api/routers/${routerId}/quota`);
+  return response.data;
+};
 export interface HotspotProfile {
   id: number;
   router_id: number;

@@ -11,6 +11,7 @@ import {
   MessageCircle, Phone, Calendar, Clock, Users, Globe, Layers, Plus, Info, Router as RouterIcon,
   Activity, ArrowDown, ArrowUp
 } from 'lucide-react';
+import { VlanDiagram, CompactCtx } from '@/components/network/NetworkDiagrams';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // --- Interfaces ---
@@ -312,11 +313,23 @@ export default function PPPoEPage() {
 
       <div className="max-w-4xl mx-auto px-4 pt-4 pb-10">
         {/* En-tête */}
-        <header className="mb-5">
+        <header className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
             <Network className="w-3.5 h-3.5" /> PPPoE & RÉSEAU
           </div>
           <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Gestion réseau avancée</h1>
+          </div>
+
+          {/* Petit schéma animé */}
+          <div className="pppoe-rise relative w-full sm:w-64 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 to-black shadow-xl">
+            <div className="absolute inset-0 opacity-60 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:18px_18px]" />
+            <div className="relative px-3 py-4 max-w-[260px] mx-auto">
+              <CompactCtx.Provider value={true}>
+                <VlanDiagram />
+              </CompactCtx.Provider>
+            </div>
+          </div>
         </header>
 
         {/* Onglets */}

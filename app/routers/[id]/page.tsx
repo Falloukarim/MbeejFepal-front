@@ -8,6 +8,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { Save, ShieldAlert, Copy, Check } from 'lucide-react';
+import { QuotaWidget } from '@/components/routers/QuotaWidget'; // ✅ NOUVEAU
 
 type RouterForm = {
   name: string;
@@ -58,22 +59,10 @@ export default function RouterDetailPage() {
         setRouterData(adaptedRouter);
         setProfiles(Array.isArray(profilesRes) ? profilesRes : []);
 
-        const portalName =
-          (routerRes as any).portal_name ||
-          (routerRes as any).PortalName ||
-          'MbeejFepal';
-        const primaryColor =
-          (routerRes as any).primary_color ||
-          (routerRes as any).PrimaryColor ||
-          '#d97706';
-        const logoURL =
-          (routerRes as any).logo_url ||
-          (routerRes as any).LogoURL ||
-          '';
-        const dailyQuota =
-          (routerRes as any).daily_quota_gb ??
-          (routerRes as any).DailyQuotaGB ??
-          0;
+        const portalName = (routerRes as any).portal_name || (routerRes as any).PortalName || 'MbeejFepal';
+        const primaryColor = (routerRes as any).primary_color || (routerRes as any).PrimaryColor || '#d97706';
+        const logoURL = (routerRes as any).logo_url || (routerRes as any).LogoURL || '';
+        const dailyQuota = (routerRes as any).daily_quota_gb ?? (routerRes as any).DailyQuotaGB ?? 0;
 
         reset({
           name: adaptedRouter.name,
@@ -84,7 +73,6 @@ export default function RouterDetailPage() {
         });
 
         setLogoPreview(logoURL);
-
       } catch (error) {
         toast.error('Erreur lors du chargement des données');
         router.push('/routers');
@@ -277,7 +265,7 @@ export default function RouterDetailPage() {
           </div>
         </div>
 
-        {/* Carte secondaire : Stats */}
+        {/* Carte secondaire : Stats + Quota */}
         <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-black rounded-[32px] shadow-xl p-6 border border-white/10">
           <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
@@ -292,6 +280,9 @@ export default function RouterDetailPage() {
               Statistiques
             </h2>
             <div className="space-y-4">
+              {/* ✅ NOUVEAU : Widget Quota */}
+              <QuotaWidget routerId={routerData.id} />
+
               <div className="p-4 bg-white/5 rounded-xl border border-white/5">
                 <p className="text-sm text-gray-400 mb-1">Forfaits associés</p>
                 <p className="text-2xl font-bold text-white">{profiles.length}</p>
