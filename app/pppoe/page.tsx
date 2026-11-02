@@ -1,40 +1,24 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import Layout from '@/components/layout/Layout';
 import api from '@/lib/api';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import {
-  Network,
-  Settings,
-  UserPlus,
-  X,
-  Copy,
-  Check,
-  Power,
-  PowerOff,
-  Trash2,
-  Tag,
-  Wifi,
-  MessageCircle,
-  Phone,
-  Calendar,
-  Clock,
-  Users,
-  Globe,
-  Layers,
-  Plus,
-  Info,
-  Router as RouterIcon,
+  Network, Settings, UserPlus, X, Copy, Check, Power, PowerOff, Trash2, Tag, Wifi,
+  MessageCircle, Phone, Calendar, Clock, Users, Globe, Layers, Plus, Info, Router as RouterIcon,
+  Activity, ArrowDown, ArrowUp
 } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // --- Interfaces ---
 interface Router { id: number; name: string; }
 interface Profile { id: number; name: string; rate_limit: string; price: number; duration_days: number; }
 interface User { id: number; name: string; phone: string; username: string; password: string; status: string; expires_at: string; profile_name: string; rate_limit: string; }
 interface WAN { name: string; interface: string; gateway: string; weight: number; }
+interface WanStat { name: string; interface: string; rx: number; tx: number; is_up: boolean; }
 
 type TabKey = 'users' | 'profiles' | 'settings' | 'vlan' | 'wan';
 
@@ -197,6 +181,11 @@ export default function PPPoEPage() {
     { name: 'Starlink 1', interface: 'ether1', gateway: '', weight: 1 }
   ]);
 
+  // ✅ ÉTATS POUR LE MONITORING WAN
+  const [wanStats, setWanStats] = useState<WanStat[]>([]);
+  const [trafficHistory, setTrafficHistory] = useState<{ time: string; download: number; upload: number }[]>([]);
+  const prevStatsRef = useRef<Record<string, { rx: number; tx: number; time: number }>>({});
+
   useEffect(() => {
     api.get('/routers').then(res => {
       const adapted = res.data.map((r: any) => ({ id: r.ID || r.id, name: r.Name || r.name }));
@@ -209,6 +198,58 @@ export default function PPPoEPage() {
     if (!selectedRouter) return;
     fetchData();
   }, [selectedRouter]);
+
+  // ✅ POLLING DU TRAFIC WAN (Toutes les 3 secondes)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (activeTab === 'wan' && selectedRouter) {
+      const fetchWanStats = async () => {
+        try {
+          const res = await api.get(`/api/pppoe/wan-stats/${selectedRouter}`);
+          const stats: WanStat[] = res.data || [];
+          setWanStats(stats);
+
+          const now = Date.now();
+          let totalDownloadMbps = 0;
+          let totalUploadMbps = 0;
+          const newPrev = { ...prevStatsRef.current };
+
+          stats.forEach(stat => {
+            const prev = prevStatsRef.current[stat.interface];
+            if (prev) {
+              const dt = (now - prev.time) / 1000; // secondes
+              if (dt > 0 && stat.rx >= prev.rx && stat.tx >= prev.tx) {
+                const rxDelta = stat.rx - prev.rx;
+                const txDelta = stat.tx - prev.tx;
+                // Calcul en Mbps : (octets * 8) / 1,000,000 / secondes
+                totalDownloadMbps += (rxDelta * 8) / 1000000 / dt;
+                totalUploadMbps += (txDelta * 8) / 1000000 / dt;
+              }
+            }
+            newPrev[stat.interface] = { rx: stat.rx, tx: stat.tx, time: now };
+          });
+
+          prevStatsRef.current = newPrev;
+
+          setTrafficHistory(prev => {
+            const newData = [...prev, {
+              time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              download: Number(totalDownloadMbps.toFixed(2)),
+              upload: Number(totalUploadMbps.toFixed(2))
+            }];
+            return newData.slice(-20); // Garde les 20 derniers points
+          });
+
+        } catch (e) {
+          console.error("Erreur stats WAN", e);
+        }
+      };
+
+      fetchWanStats();
+      interval = setInterval(fetchWanStats, 3000); // 3 secondes
+    }
+    return () => clearInterval(interval);
+  }, [activeTab, selectedRouter]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -311,30 +352,29 @@ export default function PPPoEPage() {
     } catch (e: any) { toast.error(e.response?.data || 'Erreur configuration VLAN'); } finally { setIsSubmitting(false); }
   };
 
-const handleSetupLoadBalancing = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (wans.length < 2) {
-    toast.error('Ajoutez au moins 2 connexions WAN pour le Load Balancing.');
-    return;
-  }
-  if (wans.some(w => !w.gateway)) {
-    toast.error('Veuillez renseigner la passerelle pour chaque WAN.');
-    return;
-  }
-  setIsSubmitting(true);
-  try {
-    // ✅ On envoie le format attendu par le nouveau Handler
-    await api.post(`/api/pppoe/setup-loadbalancing/${selectedRouter}`, {
-      wans: wans,
-      lan_interfaces: ["bridge-lan", "vlan-pppoe", "vlan-hotspot"] // Valeur par défaut
-    });
-    toast.success('Load Balancing activé avec succès !');
-  } catch (e: any) {
-    toast.error(e.response?.data || 'Erreur configuration Load Balancing');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  const handleSetupLoadBalancing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (wans.length < 2) {
+      toast.error('Ajoutez au moins 2 connexions WAN pour le Load Balancing.');
+      return;
+    }
+    if (wans.some(w => !w.gateway)) {
+      toast.error('Veuillez renseigner la passerelle pour chaque WAN.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await api.post(`/api/pppoe/setup-loadbalancing/${selectedRouter}`, {
+        wans: wans,
+        lan_interfaces: ["bridge-lan", "vlan-pppoe", "vlan-hotspot"]
+      });
+      toast.success('Load Balancing activé avec succès !');
+    } catch (e: any) {
+      toast.error(e.response?.data || 'Erreur configuration Load Balancing');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const updateWan = (index: number, patch: Partial<WAN>) => {
     setWans((prev) => prev.map((w, i) => (i === index ? { ...w, ...patch } : w)));
@@ -402,7 +442,7 @@ const handleSetupLoadBalancing = async (e: React.FormEvent) => {
         .pppoe-rise { animation: pppoe-rise .4s cubic-bezier(.2,.8,.2,1) both; }
       `}</style>
 
-      <div className="max-w-3xl mx-auto px-4 pt-4 pb-10">
+      <div className="max-w-4xl mx-auto px-4 pt-4 pb-10">
         {/* En-tête */}
         <header className="mb-5">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
@@ -690,75 +730,144 @@ const handleSetupLoadBalancing = async (e: React.FormEvent) => {
           </FormCard>
         )}
 
-        {/* ───────── ONGLET : MULTI-WAN ───────── */}
+        {/* ───────── ONGLET : MULTI-WAN (AMÉLIORÉ) ───────── */}
         {activeTab === 'wan' && (
-          <FormCard icon={<Globe className="w-6 h-6" />} title="Load Balancing & Failover" subtitle="Multi-WAN : répartition du trafic sur plusieurs lignes.">
-            <Notice>
-              Répartissez le trafic Internet sur plusieurs lignes (ex: Starlink). Si une ligne tombe, le trafic bascule automatiquement sur les autres.
-            </Notice>
-
-            <form onSubmit={handleSetupLoadBalancing} className="space-y-3">
-              {wans.map((wan, index) => (
-                <div key={index} className="pppoe-rise rounded-2xl bg-white/5 border border-white/10 p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="inline-flex items-center gap-2 text-sm font-extrabold text-white">
-                      <span className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center text-xs">{index + 1}</span>
-                      Connexion WAN
-                    </span>
-                    {wans.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeWan(index)}
-                        aria-label={`Supprimer la connexion ${index + 1}`}
-                        className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 text-red-400 active:scale-95 transition-all"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    )}
+          <div className="space-y-4">
+            
+            {/* 1. CARTES DE STATUT EN TEMPS RÉEL */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {wanStats.map((stat) => (
+                <div key={stat.interface} className="pppoe-rise bg-gray-900 border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg">
+                  <div>
+                    <h3 className="text-white font-bold flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-amber-500" /> {stat.name}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-mono mt-1">{stat.interface}</p>
                   </div>
-                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-  <Field label="Nom (ex: Starlink)">
-    <input value={wan.name} onChange={e => updateWan(index, { name: e.target.value })} className={inputCls} required />
-  </Field>
-  <Field label="Interface (ex: ether1)">
-    <input value={wan.interface} onChange={e => updateWan(index, { interface: e.target.value })} className={inputCls} required />
-  </Field>
-  <Field label="Gateway">
-    <input value={wan.gateway} onChange={e => updateWan(index, { gateway: e.target.value })} className={inputCls} placeholder="192.168.1.1" inputMode="decimal" required />
-  </Field>
-  {/* ✅ NOUVEAU CHAMP POIDS */}
-  <Field label="Poids (Weight)">
-    <input 
-      type="number" 
-      min="1" 
-      max="10"
-      value={wan.weight} 
-      onChange={e => updateWan(index, { weight: Number(e.target.value) })} 
-      className={inputCls} 
-      required 
-    />
-  </Field>
-</div>
+                  <div className="text-right">
+                    <div className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full inline-block mb-2 border ${stat.is_up ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                      {stat.is_up ? '● En ligne' : '● Hors ligne'}
+                    </div>
+                    <div className="text-xs text-gray-300 font-mono flex items-center justify-end gap-1">
+                      <ArrowDown className="w-3 h-3 text-amber-500" /> {(stat.rx / (1024*1024)).toFixed(2)} Mo
+                    </div>
+                    <div className="text-xs text-gray-300 font-mono flex items-center justify-end gap-1 mt-0.5">
+                      <ArrowUp className="w-3 h-3 text-amber-500" /> {(stat.tx / (1024*1024)).toFixed(2)} Mo
+                    </div>
+                  </div>
                 </div>
               ))}
+            </div>
 
-              <button
-                type="button"
-                onClick={addWan}
-                className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-amber-500/30 text-amber-500 text-sm font-bold bg-amber-500/5 active:scale-[0.98] transition-all"
-              >
-                <Plus className="w-4 h-4" /> Ajouter une connexion WAN
-              </button>
+            {/* 2. GRAPHIQUE DE BANDE PASSANTE EN DIRECT */}
+            <div className="pppoe-rise bg-gray-900 border border-white/10 rounded-2xl p-5 shadow-xl">
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-amber-500" /> Bande passante globale (Mbps)
+              </h3>
+              <div className="h-64 w-full">
+                {trafficHistory.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-sm text-gray-500">En attente de données...</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={trafficHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorDownload" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="colorUpload" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                      <XAxis dataKey="time" stroke="#666" fontSize={10} tickMargin={10} />
+                      <YAxis stroke="#666" fontSize={10} width={40} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '12px', fontSize: '12px' }}
+                        itemStyle={{ color: '#fff' }}
+                        formatter={(value: number) => [`${value} Mbps`, '']}
+                      />
+                      <Area type="monotone" dataKey="download" name="Téléchargement" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorDownload)" />
+                      <Area type="monotone" dataKey="upload" name="Envoi" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorUpload)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+              <div className="flex justify-center gap-6 mt-2 text-xs font-medium text-gray-400">
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Téléchargement</span>
+                <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Envoi</span>
+              </div>
+            </div>
 
-              {wans.length < 2 && (
-                <p className="text-xs text-amber-300/90 text-center">Ajoutez au moins 2 connexions WAN pour activer le Load Balancing.</p>
-              )}
+            {/* 3. FORMULAIRE DE CONFIGURATION */}
+            <FormCard icon={<Globe className="w-6 h-6" />} title="Configuration Multi-WAN" subtitle="Gérez vos lignes WAN et leurs poids.">
+              <Notice>
+                Répartissez le trafic Internet sur plusieurs lignes (ex: Starlink). Si une ligne tombe, le trafic bascule automatiquement sur les autres.
+              </Notice>
 
-              <button type="submit" disabled={isSubmitting} className={`${primaryBtn} mt-2`}>
-                {isSubmitting ? 'Configuration en cours...' : 'Activer le Load Balancing'}
-              </button>
-            </form>
-          </FormCard>
+              <form onSubmit={handleSetupLoadBalancing} className="space-y-3">
+                {wans.map((wan, index) => (
+                  <div key={index} className="pppoe-rise rounded-2xl bg-white/5 border border-white/10 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="inline-flex items-center gap-2 text-sm font-extrabold text-white">
+                        <span className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center text-xs">{index + 1}</span>
+                        Connexion WAN
+                      </span>
+                      {wans.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeWan(index)}
+                          aria-label={`Supprimer la connexion ${index + 1}`}
+                          className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 text-red-400 active:scale-95 transition-all"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <Field label="Nom (ex: Starlink)">
+                      <input value={wan.name} onChange={e => updateWan(index, { name: e.target.value })} className={inputCls} required />
+                    </Field>
+                    <Field label="Interface (ex: ether1)">
+                      <input value={wan.interface} onChange={e => updateWan(index, { interface: e.target.value })} className={inputCls} required />
+                    </Field>
+                    <Field label="Gateway">
+                      <input value={wan.gateway} onChange={e => updateWan(index, { gateway: e.target.value })} className={inputCls} placeholder="192.168.1.1" inputMode="decimal" required />
+                    </Field>
+                    <Field label="Poids (Weight)">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        max="10"
+                        value={wan.weight} 
+                        onChange={e => updateWan(index, { weight: Number(e.target.value) })} 
+                        className={inputCls} 
+                        required 
+                      />
+                    </Field>
+                  </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addWan}
+                  className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-amber-500/30 text-amber-500 text-sm font-bold bg-amber-500/5 active:scale-[0.98] transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Ajouter une connexion WAN
+                </button>
+
+                {wans.length < 2 && (
+                  <p className="text-xs text-amber-300/90 text-center">Ajoutez au moins 2 connexions WAN pour activer le Load Balancing.</p>
+                )}
+
+                <button type="submit" disabled={isSubmitting} className={`${primaryBtn} mt-2`}>
+                  {isSubmitting ? 'Configuration en cours...' : 'Activer le Load Balancing'}
+                </button>
+              </form>
+            </FormCard>
+          </div>
         )}
       </div>
 
