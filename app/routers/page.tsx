@@ -20,6 +20,7 @@ import {
   Activity,
 } from 'lucide-react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 type Filter = 'all' | 'online' | 'offline' | 'never_connected';
 
@@ -189,19 +190,13 @@ export default function RoutersPage() {
     });
   }, [routers, search, filter]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="max-w-3xl mx-auto px-4 pt-4 space-y-4 animate-pulse">
-          <div className="h-8 w-56 rounded-xl bg-white/10" />
-          <div className="h-28 rounded-[28px] bg-white/10" />
-          <div className="h-12 rounded-2xl bg-white/10" />
-          <div className="h-52 rounded-[28px] bg-white/10" />
-          <div className="h-52 rounded-[28px] bg-white/10" />
-        </div>
-      </Layout>
-    );
-  }
+if (loading) {
+  return (
+    <Layout>
+      <LoadingSpinner message="Chargement des routeurs..." />
+    </Layout>
+  );
+}
 
   const filters: { key: Filter; label: string; count: number }[] = [
     { key: 'all', label: 'Tous', count: counts.all },

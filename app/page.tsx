@@ -503,14 +503,15 @@ function SlideFrame({ slides, delay = 0 }: { slides: Slide[]; delay?: number }) 
 
 // Trois cadres côte à côte, chacun avec ses propres images (fichiers dans public/images/)
 const SLIDES_C: Slide[] = [
-  { src: '/images/5.jpg', tag: 'Portail', title: 'Un portail à vos couleurs', desc: 'Vos clients se connectent depuis une page à l\'image de votre zone.' },
-  { src: '/images/6.jpg', tag: 'Forfaits', title: 'Forfaits et codes en un geste', desc: 'Créez vos offres, générez codes et QR codes.' },
-  { src: '/images/7.jpg', tag: 'Tableau de bord', title: 'Tout suivre en direct', desc: 'Revenus, connexions et routeurs dans une seule app.' },
+  { src: '/images/5.jpg', tag: 'hAP ax³', title: 'MikroTik hAP ax³', desc: 'Routeur compatible MbeejFepal : prêt pour votre zone WiFi.' },
+  { src: '/images/6.jpg', tag: 'hAP ac³', title: 'MikroTik hAP ac³', desc: 'Routeur compatible MbeejFepal : fiable et abordable.' },
+  { src: '/images/7.jpg', tag: 'hAP be³', title: 'MikroTik hAP be³', desc: 'Routeur compatible MbeejFepal : la nouvelle génération.' },
 ];
 
 function SlideFrames() {
-  const frameA = SLIDES.slice(0, 3); // VLAN, PPPoE, Failover
-  const frameB = SLIDES.slice(3); // Load balancing, Paiement mobile
+  const frameA = SLIDES.slice(0, 3); // 1 : VLAN, PPPoE, Failover
+  const frameB = SLIDES.slice(3); // 2 : Load balancing, Paiement mobile
+  // 3 : routeurs hAP ax³, hAP ac³, hAP be³ (SLIDES_C)
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 w-full">
       <SlideFrame slides={frameA} />

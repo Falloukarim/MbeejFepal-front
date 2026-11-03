@@ -170,23 +170,15 @@ export default function DashboardPage() {
     if (h < 24) return `Expire dans ${h} h${min % 60 ? ` ${String(min % 60).padStart(2, '0')}` : ''}`;
     return `Expire dans ${Math.floor(h / 24)} j`;
   };
-
-  if (loading) {
-    return (
-      <Layout>
-        <div className="max-w-3xl mx-auto px-4 pt-4 space-y-4 animate-pulse">
-          <div className="h-8 w-52 rounded-xl bg-white/10" />
-          <div className="h-44 rounded-[32px] bg-white/10" />
-          <div className="grid grid-cols-3 gap-3">
-            <div className="h-24 rounded-[24px] bg-white/10" />
-            <div className="h-24 rounded-[24px] bg-white/10" />
-            <div className="h-24 rounded-[24px] bg-white/10" />
-          </div>
-          <div className="h-56 rounded-[28px] bg-white/10" />
-        </div>
-      </Layout>
-    );
-  }
+if (loading) {
+  return (
+    <Layout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
+      </div>
+    </Layout>
+  );
+}
 
   const onlineCount = routers.filter((r) => r.connection_status === 'online').length;
   const activeSessions = sessions.filter((s) => s.state === 'ACTIVE');

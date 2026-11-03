@@ -5,6 +5,7 @@ import Layout from '@/components/layout/Layout';
 import { getWallet, getTransactions, requestWithdrawal, type Wallet, type Transaction } from '@/lib/api';
 import toast from 'react-hot-toast';
 import { format, isToday, isYesterday } from 'date-fns';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { fr } from 'date-fns/locale';
 import {
   ArrowDownToLine,
@@ -147,18 +148,13 @@ export default function WalletPage() {
     return Array.from(map.values());
   }, [transactions, filter]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="max-w-2xl mx-auto px-4 pt-4 space-y-4 animate-pulse">
-          <div className="h-8 w-40 rounded-xl bg-white/10" />
-          <div className="h-60 rounded-[32px] bg-white/10" />
-          <div className="h-24 rounded-[28px] bg-white/10" />
-          <div className="h-64 rounded-[28px] bg-white/10" />
-        </div>
-      </Layout>
-    );
-  }
+if (loading) {
+  return (
+    <Layout>
+      <LoadingSpinner message="Chargement du portefeuille..." />
+    </Layout>
+  );
+}
 
   const filters: { key: TxFilter; label: string }[] = [
     { key: 'all', label: 'Tout' },

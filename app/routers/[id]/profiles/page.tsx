@@ -7,6 +7,7 @@ import { getProfiles, deleteProfile, getRouter, type HotspotProfile, type Router
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/components/ui/ConfirmModal'; // ✅ IMPORT DU MODAL
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 type Filter = 'all' | 'active' | 'inactive';
 
@@ -25,23 +26,7 @@ const formatDuration = (minutes: number) => {
 
 const formatAmount = (price: number) => (price ?? 0).toLocaleString('fr-FR');
 
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse rounded-2xl border border-neutral-800/80 bg-[#111] p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="h-3 w-14 rounded bg-neutral-800" />
-        <div className="h-3 w-3 rounded-full bg-neutral-800" />
-      </div>
-      <div className="mb-2 h-5 w-2/3 rounded bg-neutral-800" />
-      <div className="mb-5 h-8 w-1/2 rounded bg-neutral-800" />
-      <div className="mb-5 flex gap-2">
-        <div className="h-6 w-16 rounded bg-neutral-800" />
-        <div className="h-6 w-16 rounded bg-neutral-800" />
-      </div>
-      <div className="h-10 rounded-xl bg-neutral-800" />
-    </div>
-  );
-}
+
 
 export default function RouterProfilesPage() {
   const params = useParams();
@@ -138,7 +123,13 @@ export default function RouterProfilesPage() {
 
   const routerDisplayName =
     currentRouter?.name?.trim() || (loading ? 'Chargement…' : 'Routeur');
-
+    if (loading) {
+  return (
+    <Layout>
+      <LoadingSpinner message="Chargement des forfaits..." />
+    </Layout>
+  );
+}
   return (
     <Layout>
       <div className="mx-auto w-full max-w-6xl pb-28">
@@ -222,7 +213,6 @@ export default function RouterProfilesPage() {
 
         {/* ===== LISTE ===== */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {loading && [0, 1, 2].map((i) => <SkeletonCard key={i} />)}
 
           {!loading &&
             visible.map((profile) => (

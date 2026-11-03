@@ -21,28 +21,16 @@ interface Session {
 type Filter = 'all' | 'active' | 'past';
 
 const STATE_STYLES: Record<string, { label: string; color: string; dot: string }> = {
-  ACTIVE:     { label: 'Active',   color: 'text-green-400',  dot: 'bg-green-400'  },
-  CREATED:    { label: 'Créée',    color: 'text-amber-400',  dot: 'bg-amber-400'  },
+  ACTIVE:     { label: 'Active',   color: 'text-green-400',   dot: 'bg-green-400' },
+  CREATED:    { label: 'Créée',    color: 'text-amber-400',   dot: 'bg-amber-400' },
   EXPIRED:    { label: 'Expirée',  color: 'text-neutral-500', dot: 'bg-neutral-600' },
-  TERMINATED: { label: 'Terminée', color: 'text-red-400',    dot: 'bg-red-400'    },
+  TERMINATED: { label: 'Terminée', color: 'text-red-400',     dot: 'bg-red-400' },
 };
 
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse rounded-2xl border border-neutral-800/80 bg-[#111] p-5">
-      <div className="mb-4 flex justify-between">
-        <div className="h-3 w-20 rounded bg-neutral-800" />
-        <div className="h-3 w-10 rounded bg-neutral-800" />
-      </div>
-      <div className="mb-2 h-5 w-2/3 rounded bg-neutral-800" />
-      <div className="mb-5 h-3 w-1/3 rounded bg-neutral-800" />
-      <div className="space-y-2">
-        <div className="h-3 rounded bg-neutral-800" />
-        <div className="h-3 rounded bg-neutral-800" />
-        <div className="h-3 w-2/3 rounded bg-neutral-800" />
-      </div>
-    </div>
-  );
+function getRealState(s: Session, nowMs: number): string {
+  const expiry = new Date(s.expires_at).getTime();
+  if (s.state === 'ACTIVE' && !isNaN(expiry) && expiry < nowMs) return 'EXPIRED';
+  return s.state;
 }
 
 function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
@@ -114,9 +102,7 @@ export default function SessionsPage() {
                 const id = p.ID || p.id;
                 if (id) profileMap[id] = p.ProfileName || p.profile_name || `Forfait #${id}`;
               });
-            } catch {
-              // Routeur sans profils : on ignore
-            }
+            } catch { /* ignore */ }
           })
         );
         setProfiles(profileMap);
@@ -136,11 +122,8 @@ export default function SessionsPage() {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Date invalide';
     return date.toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
   };
 
@@ -169,15 +152,15 @@ export default function SessionsPage() {
   };
 
   const stats = useMemo(() => {
-    const active = sessions.filter((s) => s.state === 'ACTIVE').length;
+    const active = sessions.filter((s) => getRealState(s, now) === 'ACTIVE').length;
     return { total: sessions.length, active, past: sessions.length - active };
-  }, [sessions]);
+  }, [sessions, now]);
 
   const visible = useMemo(() => {
-    if (filter === 'active') return sessions.filter((s) => s.state === 'ACTIVE');
-    if (filter === 'past') return sessions.filter((s) => s.state !== 'ACTIVE');
+    if (filter === 'active') return sessions.filter((s) => getRealState(s, now) === 'ACTIVE');
+    if (filter === 'past') return sessions.filter((s) => getRealState(s, now) !== 'ACTIVE');
     return sessions;
-  }, [sessions, filter]);
+  }, [sessions, filter, now]);
 
   const filters: { key: Filter; label: string; count: number }[] = [
     { key: 'all', label: 'Toutes', count: stats.total },
@@ -185,12 +168,22 @@ export default function SessionsPage() {
     { key: 'past', label: 'Passées', count: stats.past },
   ];
 
+  // ✅ SPINNER (comme la page Statistiques)
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="pointer-events-none fixed inset-0 z-0 bg-[#0a0a0a]" />
 
       <div className="relative z-10 mx-auto w-full max-w-5xl pb-16">
-        {/* ===== HEADER (sans carré) ===== */}
         <header className="sticky top-0 z-30 -mx-4 mb-6 border-b border-neutral-800/60 bg-[#0a0a0a]/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-2">
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
@@ -201,7 +194,7 @@ export default function SessionsPage() {
                 Sessions
               </h1>
             </div>
-            {!loading && (
+            {sessions.length > 0 && (
               <p className="shrink-0 pb-1 text-xs text-neutral-500">
                 {sessions.length} session{sessions.length > 1 ? 's' : ''}
               </p>
@@ -209,18 +202,14 @@ export default function SessionsPage() {
           </div>
         </header>
 
-        {/* ===== STATISTIQUES (sobres, sans couleur criarde) ===== */}
-        {!loading && sessions.length > 0 && (
+        {sessions.length > 0 && (
           <div className="mb-6 grid grid-cols-3 gap-3">
             {[
               { label: 'Total',   value: stats.total,  color: 'text-white' },
               { label: 'Actives', value: stats.active, color: 'text-green-400' },
               { label: 'Passées', value: stats.past,   color: 'text-neutral-400' },
             ].map((s) => (
-              <div
-                key={s.label}
-                className="rounded-xl border border-neutral-800/80 bg-[#111] px-4 py-3"
-              >
+              <div key={s.label} className="rounded-xl border border-neutral-800/80 bg-[#111] px-4 py-3">
                 <div className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</div>
                 <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
                   {s.label}
@@ -230,8 +219,7 @@ export default function SessionsPage() {
           </div>
         )}
 
-        {/* ===== FILTRES (chips discrets) ===== */}
-        {!loading && sessions.length > 0 && (
+        {sessions.length > 0 && (
           <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((f) => (
               <button
@@ -244,11 +232,7 @@ export default function SessionsPage() {
                 }`}
               >
                 {f.label}
-                <span
-                  className={`ml-2 text-xs ${
-                    filter === f.key ? 'text-orange-400/70' : 'text-neutral-600'
-                  }`}
-                >
+                <span className={`ml-2 text-xs ${filter === f.key ? 'text-orange-400/70' : 'text-neutral-600'}`}>
                   {f.count}
                 </span>
               </button>
@@ -256,90 +240,84 @@ export default function SessionsPage() {
           </div>
         )}
 
-        {/* ===== LISTE ===== */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {loading && [0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+          {visible.map((session) => {
+            const realState = getRealState(session, now);
+            const st = STATE_STYLES[realState] ?? {
+              label: realState,
+              color: 'text-neutral-400',
+              dot: 'bg-neutral-500',
+            };
+            const isActive = realState === 'ACTIVE';
+            const percent = remainingPercent(session);
 
-          {!loading &&
-            visible.map((session) => {
-              const st = STATE_STYLES[session.state] ?? {
-                label: session.state,
-                color: 'text-neutral-400',
-                dot: 'bg-neutral-500',
-              };
-              const isActive = session.state === 'ACTIVE';
-              const percent = remainingPercent(session);
+            return (
+              <article
+                key={session.id}
+                className={`group relative overflow-hidden rounded-2xl border bg-[#111] transition-colors ${
+                  isActive ? 'border-orange-500/20' : 'border-neutral-800/80'
+                }`}
+              >
+                {isActive && (
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+                )}
 
-              return (
-                <article
-                  key={session.id}
-                  className={`group relative overflow-hidden rounded-2xl border bg-[#111] transition-colors ${
-                    isActive ? 'border-orange-500/20' : 'border-neutral-800/80'
-                  }`}
-                >
-                  {/* Fin liseré supérieur uniquement pour les sessions actives */}
-                  {isActive && (
-                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+                <div className="p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                      <span className={`h-1.5 w-1.5 rounded-full ${st.dot} ${isActive ? 'animate-pulse' : ''}`} />
+                      <span className={st.color}>{st.label}</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-neutral-600">#{session.id}</span>
+                  </div>
+
+                  <h3 className="truncate text-base font-semibold text-white">
+                    {routers[session.router_id] || `Routeur #${session.router_id}`}
+                  </h3>
+                  <p className="mt-0.5 truncate text-sm text-neutral-400">
+                    {profiles[session.hotspot_id] || `Forfait #${session.hotspot_id}`}
+                  </p>
+
+                  {isActive ? (
+                    <div className="mt-4">
+                      <div className="mb-1.5 flex items-center justify-between text-xs">
+                        <span className="text-neutral-500">Temps restant</span>
+                        <span className="font-semibold tabular-nums text-orange-400">
+                          {formatRemainingTime(session.expires_at)}
+                        </span>
+                      </div>
+                      <div className="h-1 overflow-hidden rounded-full bg-neutral-800">
+                        <div
+                          className="h-full rounded-full bg-orange-500 transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-lg border border-neutral-800/60 bg-neutral-900/40 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-0.5">
+                        {realState === 'EXPIRED' ? 'Session expirée' : `État : ${st.label}`}
+                      </p>
+                      <p className="text-xs text-neutral-400">
+                        {realState === 'EXPIRED'
+                          ? `Fin : ${formatDate(session.expires_at)}`
+                          : `Depuis : ${formatDate(session.created_at)}`}
+                      </p>
+                    </div>
                   )}
 
-                  <div className="p-5">
-                    {/* Statut + identifiant */}
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${st.dot} ${
-                            isActive ? 'animate-pulse' : ''
-                          }`}
-                        />
-                        <span className={st.color}>{st.label}</span>
-                      </span>
-                      <span className="font-mono text-[10px] text-neutral-600">
-                        #{session.id}
-                      </span>
-                    </div>
-
-                    {/* Titre & sous-titre — SANS carré d'icône */}
-                    <h3 className="truncate text-base font-semibold text-white">
-                      {routers[session.router_id] || `Routeur #${session.router_id}`}
-                    </h3>
-                    <p className="mt-0.5 truncate text-sm text-neutral-400">
-                      {profiles[session.hotspot_id] || `Forfait #${session.hotspot_id}`}
-                    </p>
-
-                    {/* Temps restant — sessions actives uniquement */}
-                    {isActive && (
-                      <div className="mt-4">
-                        <div className="mb-1.5 flex items-center justify-between text-xs">
-                          <span className="text-neutral-500">Temps restant</span>
-                          <span className="font-semibold tabular-nums text-orange-400">
-                            {formatRemainingTime(session.expires_at)}
-                          </span>
-                        </div>
-                        <div className="h-1 overflow-hidden rounded-full bg-neutral-800">
-                          <div
-                            className="h-full rounded-full bg-orange-500 transition-all duration-500"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Détails — liste épurée */}
-                    <div className="mt-4 divide-y divide-neutral-800/60 border-t border-neutral-800/60">
-                      <DetailRow label="MAC" value={session.mac_address} mono />
-                      {session.ip_address && (
-                        <DetailRow label="IP" value={session.ip_address} mono />
-                      )}
-                      <DetailRow label="Début" value={formatDate(session.created_at)} />
-                      <DetailRow label="Fin" value={formatDate(session.expires_at)} />
-                    </div>
+                  <div className="mt-4 divide-y divide-neutral-800/60 border-t border-neutral-800/60">
+                    <DetailRow label="MAC" value={session.mac_address} mono />
+                    {session.ip_address && <DetailRow label="IP" value={session.ip_address} mono />}
+                    <DetailRow label="Début" value={formatDate(session.created_at)} />
+                    <DetailRow label="Fin" value={formatDate(session.expires_at)} />
                   </div>
-                </article>
-              );
-            })}
+                </div>
+              </article>
+            );
+          })}
 
-          {/* États vides */}
-          {!loading && sessions.length === 0 && (
+          {sessions.length === 0 && (
             <div className="col-span-full flex flex-col items-center rounded-2xl border border-neutral-800/80 bg-[#111] px-6 py-16 text-center">
               <div className="mb-4 text-3xl text-neutral-700">
                 <i className="bi bi-clock-history"></i>
@@ -351,7 +329,7 @@ export default function SessionsPage() {
             </div>
           )}
 
-          {!loading && sessions.length > 0 && visible.length === 0 && (
+          {sessions.length > 0 && visible.length === 0 && (
             <div className="col-span-full rounded-2xl border border-neutral-800/80 bg-[#111] py-12 text-center text-sm text-neutral-500">
               Aucune session dans cette catégorie
             </div>

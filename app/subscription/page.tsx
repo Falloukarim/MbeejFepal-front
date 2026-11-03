@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { getSubscriptionPlans, chooseSubscription, upgradeToLevel2, SubscriptionPlan } from '@/lib/api';
 import { useSubscription } from '../context/SubscriptionContext';
 import {
@@ -117,18 +118,13 @@ function SubscriptionContent() {
     return plan.base_price + extra * plan.extra_router_price;
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="max-w-md mx-auto px-4 py-6 space-y-4 animate-pulse">
-          <div className="h-8 w-48 rounded-xl bg-white/10" />
-          <div className="h-12 rounded-2xl bg-white/10" />
-          <div className="h-44 rounded-[28px] bg-white/10" />
-          <div className="h-64 rounded-[28px] bg-white/10" />
-        </div>
-      </Layout>
-    );
-  }
+if (loading) {
+  return (
+    <Layout>
+      <LoadingSpinner message="Chargement du portefeuille..." />
+    </Layout>
+  );
+}
 
   const busy = processingId !== null;
   const expiresLabel = currentSub?.expires_at
