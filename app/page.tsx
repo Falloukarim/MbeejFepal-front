@@ -423,20 +423,44 @@ function VideoBlock({ src, label }: { src: string; label: string }) {
 // Hauteur commune au téléphone et aux cadres : tout reste visible sans défiler
 const FRAME_H = 'h-[420px] sm:h-[clamp(345px,calc(100dvh-10rem),640px)]';
 
+// Cherche une image en essayant plusieurs extensions
+const IMG_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'JPG', 'JPEG', 'PNG'];
+function probeImage(src: string): Promise<string | null> {
+  const base = src.replace(/\.[A-Za-z0-9]+$/, '');
+  const candidates = [src, ...IMG_EXTS.map((e) => `${base}.${e}`)].filter((v, k, a) => a.indexOf(v) === k);
+  const tryAt = (n: number): Promise<string | null> =>
+    n >= candidates.length
+      ? Promise.resolve(null)
+      : new Promise((resolve) => {
+          const img = new window.Image();
+          img.onload = () => resolve(candidates[n]);
+          img.onerror = () => resolve(tryAt(n + 1));
+          img.src = candidates[n];
+        });
+  return tryAt(0);
+}
+
 // Un cadre = son propre défilement d'images avec sa description dessous
 function SlideFrame({ slides, delay = 0 }: { slides: Slide[]; delay?: number }) {
-  const [bad, setBad] = useState<string[]>([]);
+  // Chemin réellement trouvé pour chaque image (null = introuvable, undefined = en cours)
+  const [found, setFound] = useState<Record<string, string | null>>({});
   const [i, setI] = useState(0);
-  const list = slides.filter((p) => !bad.includes(p.src));
+  const list = slides.filter((p) => found[p.src]).map((p) => ({ ...p, src: found[p.src] as string }));
+  const pending = slides.some((p) => found[p.src] === undefined);
 
-  // Précharge les images pour éviter tout clignotement
+  // Vérifie chaque image (et essaie les autres extensions : jpg, jpeg, png, webp…)
   useEffect(() => {
+    let cancelled = false;
     slides.forEach((p) => {
-      const img = new window.Image();
-      img.onerror = () => setBad((b) => (b.includes(p.src) ? b : [...b, p.src]));
-      img.src = p.src;
+      probeImage(p.src).then((ok) => {
+        if (!cancelled) setFound((f) => ({ ...f, [p.src]: ok }));
+      });
     });
-  }, [slides]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.map((p) => p.src).join('|')]);
 
   // Les cadres sont décalés (delay) pour ne pas changer tous en même temps
   useEffect(() => {
@@ -451,7 +475,21 @@ function SlideFrame({ slides, delay = 0 }: { slides: Slide[]; delay?: number }) 
     };
   }, [list.length, delay]);
 
-  if (list.length === 0) return null;
+  if (list.length === 0) {
+    if (pending) return <div className={`${FRAME_H} rounded-[28px] border border-white/10 bg-white/5 animate-pulse`} />;
+    // En développement seulement : indique les fichiers manquants
+    if (process.env.NODE_ENV !== 'production') {
+      return (
+        <div className={`${FRAME_H} rounded-[28px] border-2 border-dashed border-amber-500/40 bg-black/50 p-4 flex flex-col items-center justify-center text-center gap-2`}>
+          <p className="text-sm font-bold text-amber-400">Images introuvables</p>
+          {slides.map((p) => (
+            <code key={p.src} className="text-[11px] text-gray-300">public{p.src}</code>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  }
   const idx = i % list.length;
   const slide = list[idx];
 
@@ -517,6 +555,96 @@ function SlideFrames() {
       <SlideFrame slides={frameA} />
       <SlideFrame slides={frameB} delay={1700} />
       <SlideFrame slides={SLIDES_C} delay={3400} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CARTES QUI TOURNENT AUTOUR DU TÉLÉPHONE (orange & noir)
+   ══════════════════════════════════════════════════════════════ */
+type AppCardData = { icon: LucideIcon; title: string; desc: string };
+
+const CARDS_LEFT: AppCardData[] = [
+  { icon: RouterIcon, title: 'Multi-routeurs', desc: 'Tous vos sites dans une seule app.' },
+  { icon: Tag, title: 'Forfaits sur mesure', desc: 'Durée, prix, débit, appareils.' },
+  { icon: Wallet, title: 'Portefeuille', desc: 'Vos gains, retirables en un geste.' },
+  { icon: Palette, title: 'Portail à vos couleurs', desc: 'Une page de connexion à votre image.' },
+  { icon: QrCode, title: 'Codes & QR codes', desc: 'Générez des tickets en quelques secondes.' },
+  { icon: CreditCard, title: 'Mobile money', desc: 'Wave et Orange Money intégrés.' },
+];
+
+const CARDS_RIGHT: AppCardData[] = [
+  { icon: Gauge, title: 'Statistiques', desc: 'Connexions et revenus en direct.' },
+  { icon: Users, title: 'Abonnés PPPoE', desc: 'Comptes et identifiants partagés en un geste.' },
+  { icon: Layers, title: 'VLAN', desc: 'Réseaux isolés sur un seul câble.' },
+  { icon: GitMerge, title: 'Load balancing', desc: 'Toutes vos lignes, une seule connexion.' },
+  { icon: ShieldCheck, title: 'Failover', desc: 'Bascule automatique si une ligne tombe.' },
+  { icon: Server, title: 'Tunnel WireGuard', desc: 'Connexion sécurisée à vos routeurs.' },
+];
+
+function AppCard({ icon: Icon, title, desc }: AppCardData) {
+  return (
+    <div className="h-[92px] w-[232px] flex items-center gap-3.5 rounded-[22px] border border-amber-500/25 bg-gradient-to-br from-gray-900 via-black to-black px-4 shadow-[0_10px_40px_-12px_rgba(245,158,11,0.35)]">
+      <span className="w-12 h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-black flex items-center justify-center shadow-lg shadow-orange-600/30">
+        <Icon className="w-6 h-6" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-extrabold text-white leading-tight">{title}</p>
+        <p className="mt-0.5 text-xs text-gray-400 leading-snug line-clamp-2">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+// Tambour 3D : les cartes tournent en cercle, seule la face avant est visible
+function CardDrum({ items, reverse = false }: { items: AppCardData[]; reverse?: boolean }) {
+  const step = 360 / items.length;
+  const R = 200;
+  return (
+    <div
+      className="relative h-[560px] w-[232px]"
+      style={{
+        perspective: '1000px',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, #000 22%, #000 78%, transparent 100%)',
+        maskImage: 'linear-gradient(to bottom, transparent 0%, #000 22%, #000 78%, transparent 100%)',
+      }}
+    >
+      <div className={`absolute inset-0 ${reverse ? 'lp-drum-down' : 'lp-drum-up'}`} style={{ transformStyle: 'preserve-3d' }}>
+        {items.map((c, k) => (
+          <div
+            key={c.title}
+            className="absolute left-0"
+            style={{
+              top: 'calc(50% - 46px)',
+              transform: `rotateX(${k * step}deg) translateZ(${R}px)`,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+            }}
+          >
+            <AppCard {...c} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Version mobile : bandeau horizontal qui défile en boucle
+function CardMarquee() {
+  const all = [...CARDS_LEFT, ...CARDS_RIGHT];
+  return (
+    <div
+      className="lg:hidden mt-10 overflow-hidden"
+      style={{
+        WebkitMaskImage: 'linear-gradient(to right, transparent, #000 10%, #000 90%, transparent)',
+        maskImage: 'linear-gradient(to right, transparent, #000 10%, #000 90%, transparent)',
+      }}
+    >
+      <div className="lp-marquee flex w-max gap-4">
+        {[...all, ...all].map((c, k) => (
+          <AppCard key={k} {...c} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -639,10 +767,19 @@ export default function HomePage() {
         @keyframes lp-failcycle { 0%,30%{opacity:0} 34%,70%{opacity:1} 74%,100%{opacity:0} }
         .lp-ok { animation: lp-ok 9s infinite; }
         .lp-fail { animation: lp-failcycle 9s infinite; }
+        @keyframes lp-drum-up { from { transform: rotateX(0deg); } to { transform: rotateX(-360deg); } }
+        @keyframes lp-drum-down { from { transform: rotateX(0deg); } to { transform: rotateX(360deg); } }
+        .lp-drum-up { animation: lp-drum-up 36s linear infinite; }
+        .lp-drum-down { animation: lp-drum-down 36s linear infinite; }
+        @keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .lp-marquee { animation: lp-marquee 45s linear infinite; }
+        @keyframes lp-spin { to { transform: rotate(360deg); } }
+        .lp-ring-a { animation: lp-spin 60s linear infinite; }
+        .lp-ring-b { animation: lp-spin 90s linear infinite reverse; }
         @keyframes lp-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         .lp-float { animation: lp-float 6s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .lp-ok,.lp-fail,.lp-float { animation: none; }
+          .lp-ok,.lp-fail,.lp-float,.lp-drum-up,.lp-drum-down,.lp-marquee,.lp-ring-a,.lp-ring-b { animation: none; }
           .lp-fail { opacity: 0; }
         }
       `}</style>
@@ -897,16 +1034,42 @@ export default function HomePage() {
         </motion.div>
       </section>
 
-      {/* ================= TÉLÉPHONE ================= */}
-      <section className="relative px-4 sm:px-6 pb-24 sm:pb-28">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_60%,rgba(217,119,6,0.14)_0%,transparent_55%)] pointer-events-none" />
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }} variants={fadeUp} transition={{ duration: 0.7 }} className="relative flex flex-col items-center text-center">
-          <PhoneMock />
-          <div className="mt-8 max-w-sm">
-            <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-500">Réseau avancé</p>
-            <h3 className="mt-1 text-2xl font-extrabold text-white leading-tight">VLAN, Multi-WAN et Failover.</h3>
-            <p className="mt-1 text-sm text-gray-300">Pilotez tout depuis votre téléphone.</p>
+      {/* ================= TÉLÉPHONE + CARTES QUI TOURNENT ================= */}
+      <section className="relative overflow-hidden px-4 sm:px-6 pb-24 sm:pb-28">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(217,119,6,0.16)_0%,transparent_55%)] pointer-events-none" />
+
+        {/* Cercles décoratifs qui tournent */}
+        <div className="hidden lg:block absolute left-1/2 top-[330px] -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="lp-ring-a absolute -translate-x-1/2 -translate-y-1/2 w-[760px] h-[760px] rounded-full border border-dashed border-amber-500/20">
+            <span className="absolute -top-1.5 left-1/2 w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_18px_#f59e0b]" />
+            <span className="absolute -bottom-1.5 left-1/2 w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_14px_#f97316]" />
           </div>
+          <div className="lp-ring-b absolute -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] rounded-full border border-amber-500/15">
+            <span className="absolute top-1/2 -left-1.5 w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_16px_#fbbf24]" />
+          </div>
+        </div>
+
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-60px' }} variants={fadeUp} transition={{ duration: 0.7 }} className="relative max-w-6xl mx-auto">
+          <div className="flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] items-center gap-8">
+            <div className="hidden lg:flex justify-end">
+              <CardDrum items={CARDS_LEFT} />
+            </div>
+
+            <div className="flex flex-col items-center text-center">
+              <PhoneMock />
+              <div className="mt-8 max-w-sm">
+                <p className="text-[11px] font-extrabold uppercase tracking-widest text-amber-500">Réseau avancé</p>
+                <h3 className="mt-1 text-2xl font-extrabold text-white leading-tight">VLAN, Multi-WAN et Failover.</h3>
+                <p className="mt-1 text-sm text-gray-300">Pilotez tout depuis votre téléphone.</p>
+              </div>
+            </div>
+
+            <div className="hidden lg:flex justify-start">
+              <CardDrum items={CARDS_RIGHT} reverse />
+            </div>
+          </div>
+
+          <CardMarquee />
         </motion.div>
       </section>
 
