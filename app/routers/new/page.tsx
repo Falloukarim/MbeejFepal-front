@@ -9,7 +9,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createRouter } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Check, Copy, Terminal, ChevronLeft, Wifi, CheckCircle2, ArrowRight, Router as RouterIcon } from 'lucide-react';
+import { 
+  Check, 
+  Copy, 
+  Terminal, 
+  ChevronLeft, 
+  Wifi, 
+  CheckCircle2, 
+  ArrowRight, 
+  Router as RouterIcon,
+  Tag
+} from 'lucide-react';
 
 const routerSchema = z.object({
   name: z.string().min(3, 'Le nom doit contenir au moins 3 caractères'),
@@ -22,6 +32,7 @@ export default function NewRouterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [command, setCommand] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [newRouterId, setNewRouterId] = useState<number | null>(null); // ✅ NOUVEAU
 
   const {
     register,
@@ -41,6 +52,7 @@ export default function NewRouterPage() {
     try {
       const response = await createRouter(data.name);
       setCommand(response.command);
+      setNewRouterId(response.id); // ✅ NOUVEAU : stocker l'ID
       toast.success('Routeur créé avec succès !');
     } catch (error: any) {
       toast.error(error.response?.data?.message || error.response?.data || 'Erreur lors de la création');
@@ -256,13 +268,28 @@ export default function NewRouterPage() {
               </ol>
             </section>
 
-            <button
-              onClick={() => router.push('/routers')}
-              className="nr-rise w-full h-14 rounded-2xl bg-white text-black font-bold text-base shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-              style={{ animationDelay: '200ms' }}
-            >
-              Terminer <ArrowRight className="w-5 h-5" />
-            </button>
+            {/* ✅ NOUVEAU : Bouton Créer un forfait */}
+            <div className="nr-rise grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ animationDelay: '200ms' }}>
+              {newRouterId && (
+                <Link
+                  href={`/profiles/new?router_id=${newRouterId}`}
+                  className="h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-base shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <Tag className="w-5 h-5" /> Créer un forfait
+                </Link>
+              )}
+              <button
+                onClick={() => router.push('/routers')}
+                className={`h-14 rounded-2xl bg-white text-black font-bold text-base shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${newRouterId ? '' : 'sm:col-span-2'}`}
+              >
+                Terminer <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Petit hint */}
+            <p className="text-xs text-center text-gray-500">
+              Vous pourrez créer d'autres forfaits plus tard depuis la page du routeur.
+            </p>
           </div>
         )}
       </div>
