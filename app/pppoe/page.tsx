@@ -105,6 +105,16 @@ function ProfilePicker({ profiles, value, onChange }: { profiles: Profile[]; val
   );
 }
 
+// ───────── Spinner ─────────
+function LoadingSpinner({ message }: { message?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500" />
+      {message && <p className="text-sm text-neutral-500">{message}</p>}
+    </div>
+  );
+}
+
 export default function PPPoEPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('users');
   const [routers, setRouters] = useState<Router[]>([]);
@@ -128,7 +138,7 @@ export default function PPPoEPage() {
   const [clientPhone, setClientPhone] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<number | ''>('');
 
-  // ✅ Config PPPoE avec Interface
+  // Config PPPoE avec Interface
   const [cfgPort, setCfgPort] = useState('ether5');
   const [cfgService, setCfgService] = useState('MBEEJ_PPPOE');
   const [cfgPool, setCfgPool] = useState('pool_pppoe');
@@ -137,7 +147,7 @@ export default function PPPoEPage() {
   const [cfgDns, setCfgDns] = useState('1.1.1.1,8.8.8.8');
   const [cfgInterface, setCfgInterface] = useState('bridge_pppoe');
 
-  // ✅ Config VLAN Dynamique
+  // Config VLAN Dynamique
   const [vlanTrunkPort, setVlanTrunkPort] = useState('ether5');
   const [vlansList, setVlansList] = useState<VLANInterface[]>([
     { name: 'vlan-pppoe', vlan_id: 20, role: 'pppoe', ip_address: '10.50.0.1/16' },
@@ -147,7 +157,7 @@ export default function PPPoEPage() {
   // Config Load Balancing
   const [wans, setWans] = useState<WAN[]>([{ name: 'Starlink 1', interface: 'ether1', gateway: '', weight: 1 }]);
 
-  // ✅ Monitoring WAN
+  // Monitoring WAN
   const [wanStats, setWanStats] = useState<WanStat[]>([]);
   const [trafficHistory, setTrafficHistory] = useState<{ time: string; download: number; upload: number }[]>([]);
   const prevStatsRef = useRef<Record<string, { rx: number; tx: number; time: number }>>({});
@@ -157,7 +167,8 @@ export default function PPPoEPage() {
       const adapted = res.data.map((r: any) => ({ id: r.ID || r.id, name: r.Name || r.name }));
       setRouters(adapted);
       if (adapted.length > 0) setSelectedRouter(adapted[0].id);
-    });
+      else setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -226,7 +237,9 @@ export default function PPPoEPage() {
     e.preventDefault(); setIsSubmitting(true);
     try {
       await api.post('/api/pppoe/profiles', { router_id: selectedRouter, name: profName, rate_limit: `${profUpload}M/${profDownload}M`, price: Number(profPrice), duration_days: Number(profDuration) });
-      toast.success('Forfait créé'); setIsProfileModalOpen(false); fetchData();
+      toast.success('Forfait créé'); setIsProfileModalOpen(false);
+      setProfName(''); setProfPrice(''); setProfUpload('10'); setProfDownload('10'); setProfDuration('30');
+      fetchData();
     } catch (e: any) { toast.error(e.response?.data || 'Erreur'); } finally { setIsSubmitting(false); }
   };
 
@@ -234,7 +247,9 @@ export default function PPPoEPage() {
     e.preventDefault(); setIsSubmitting(true);
     try {
       await api.post('/api/pppoe/users', { router_id: selectedRouter, profile_id: Number(selectedProfile), name: clientName, phone: clientPhone });
-      toast.success('Abonné créé !'); setIsUserModalOpen(false); fetchData();
+      toast.success('Abonné créé !'); setIsUserModalOpen(false);
+      setClientName(''); setClientPhone(''); setSelectedProfile('');
+      fetchData();
     } catch (e: any) { toast.error(e.response?.data || 'Erreur'); } finally { setIsSubmitting(false); }
   };
 
@@ -248,7 +263,6 @@ export default function PPPoEPage() {
     } catch (e: any) { toast.error(e.response?.data || 'Erreur'); } finally { setIsSubmitting(false); }
   };
 
-  // ✅ Gestion dynamique des VLANs
   const addVlan = () => setVlansList(prev => [...prev, { name: `vlan-${prev.length + 1}`, vlan_id: 40 + prev.length, role: 'custom', ip_address: '192.168.1.1/24' }]);
   const removeVlan = (index: number) => setVlansList(prev => prev.filter((_, i) => i !== index));
   const updateVlan = (index: number, patch: Partial<VLANInterface>) => setVlansList(prev => prev.map((v, i) => i === index ? { ...v, ...patch } : v));
@@ -281,15 +295,47 @@ export default function PPPoEPage() {
   const addWan = () => setWans(prev => [...prev, { name: `WAN ${prev.length + 1}`, interface: `ether${prev.length + 1}`, gateway: '', weight: 1 }]);
   const removeWan = (index: number) => setWans(prev => prev.filter((_, i) => i !== index));
 
-  const toggleStatus = async (u: User) => { try { await api.put(`/api/pppoe/users/${u.id}/${u.status === 'active' ? 'suspend' : 'activate'}`); fetchData(); } catch (e) { toast.error('Erreur'); } };
-  const deleteUser = async (id: number) => { if (!confirm('Supprimer ?')) return; try { await api.delete(`/api/pppoe/users/${id}`); fetchData(); } catch (e) { toast.error('Erreur'); } };
-  const copyCreds = (u: User) => { navigator.clipboard.writeText(`User: ${u.username}\nPass: ${u.password}`); setCopiedId(u.id); setTimeout(() => setCopiedId(null), 2000); toast.success('Copié !'); };
-  
+  const toggleStatus = async (u: User) => {
+    try {
+      await api.put(`/api/pppoe/users/${u.id}/${u.status === 'active' ? 'suspend' : 'activate'}`);
+      toast.success(u.status === 'active' ? 'Abonné suspendu' : 'Abonné réactivé');
+      fetchData();
+    } catch { toast.error('Erreur'); }
+  };
+
+  const deleteUser = async (u: User) => {
+    if (!confirm(`Supprimer définitivement l'abonné "${u.name}" ?`)) return;
+    try {
+      await api.delete(`/api/pppoe/users/${u.id}`);
+      toast.success('Abonné supprimé');
+      fetchData();
+    } catch { toast.error('Erreur suppression'); }
+  };
+
+  const copyCreds = (u: User) => {
+    navigator.clipboard.writeText(`Utilisateur : ${u.username}\nMot de passe : ${u.password}`);
+    setCopiedId(u.id);
+    setTimeout(() => setCopiedId(null), 2000);
+    toast.success('Identifiants copiés !');
+  };
+
   const getWhatsAppLink = (phone: string, username: string, password: string) => {
     if (!phone) return '#';
     let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('00')) cleanPhone = cleanPhone.substring(2);
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     if (cleanPhone.length === 9) cleanPhone = '221' + cleanPhone;
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Bonjour,\n\nVos identifiants :\n👤 Utilisateur : ${username}\n🔑 Mot de passe : ${password}`)}`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+      `Bonjour,\n\nVoici vos identifiants de connexion Internet :\n👤 Utilisateur : ${username}\n🔑 Mot de passe : ${password}\n\nMerci de votre confiance !`
+    )}`;
+  };
+
+  // ✅ Statut calculé (expiration + status)
+  const statusOf = (u: User) => {
+    const expired = new Date(u.expires_at).getTime() < Date.now();
+    if (u.status === 'suspended') return { label: 'Suspendu', cls: 'bg-amber-500/15 text-amber-400 border-amber-500/30' };
+    if (expired || u.status === 'expired') return { label: 'Expiré', cls: 'bg-red-500/15 text-red-400 border-red-500/30' };
+    return { label: 'Actif', cls: 'bg-green-500/15 text-green-400 border-green-500/30' };
   };
 
   const tabs: { key: TabKey; label: string; icon: ReactNode }[] = [
@@ -315,13 +361,12 @@ export default function PPPoEPage() {
         {/* En-tête */}
         <header className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
-            <Network className="w-3.5 h-3.5" /> PPPoE & RÉSEAU
-          </div>
-          <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Gestion réseau avancée</h1>
+            <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
+              <Network className="w-3.5 h-3.5" /> PPPoE & RÉSEAU
+            </div>
+            <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Gestion réseau avancée</h1>
           </div>
 
-          {/* Petit schéma animé */}
           <div className="pppoe-rise relative w-full sm:w-64 shrink-0 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-gray-900 to-black shadow-xl">
             <div className="absolute inset-0 opacity-60 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:18px_18px]" />
             <div className="relative px-3 py-4 max-w-[260px] mx-auto">
@@ -348,29 +393,147 @@ export default function PPPoEPage() {
               <RouterIcon className="w-4 h-4" /> {r.name}
             </button>
           ))}
+          {routers.length === 0 && !loading && (
+            <p className="text-sm text-gray-500">Aucun routeur. Créez-en un d'abord.</p>
+          )}
         </div>
 
-        {/* ───────── ONGLET : ABONNÉS (Simplifié pour la clarté) ───────── */}
+        {/* ───────── ONGLET : ABONNÉS ───────── */}
         {activeTab === 'users' && (
           <>
             <button onClick={() => setIsUserModalOpen(true)} className="w-full h-14 mb-5 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl text-base font-bold shadow-xl shadow-amber-600/25 transition-all active:scale-[0.98]">
               <UserPlus className="w-5 h-5" /> Nouvel abonné
             </button>
-            {/* ... (Garde ta liste d'abonnés actuelle) ... */}
+
+            {loading ? (
+              <LoadingSpinner message="Chargement des abonnés..." />
+            ) : users.length === 0 ? (
+              <div className="text-center py-14 rounded-[28px] bg-white/5 border border-white/10">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <Users className="w-8 h-8" />
+                </div>
+                <p className="font-bold text-white">Aucun abonné</p>
+                <p className="text-sm text-gray-400 mt-1">Ajoutez votre premier client PPPoE.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {users.map((u) => {
+                  const st = statusOf(u);
+                  return (
+                    <article key={u.id} className="pppoe-rise rounded-[28px] bg-gradient-to-br from-gray-900 to-black border border-white/10 p-4 shadow-xl">
+                      {/* Haut */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 shrink-0 rounded-2xl bg-amber-500/15 border border-amber-500/20 text-amber-400 flex items-center justify-center text-lg font-extrabold">
+                          {(u.name || '?').trim().charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-white truncate">{u.name}</p>
+                          <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                            <Phone className="w-3 h-3" /> {u.phone || 'Pas de numéro'}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full border ${st.cls}`}>
+                          {st.label.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {/* Forfait + expiration */}
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold flex items-center gap-1"><Wifi className="w-3 h-3" /> Forfait</p>
+                          <p className="text-sm font-bold text-white mt-1 truncate">{u.profile_name}</p>
+                          <p className="text-xs text-amber-500">{u.rate_limit}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/5 border border-white/5 p-3">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold flex items-center gap-1"><Calendar className="w-3 h-3" /> Expiration</p>
+                          <p className="text-sm font-bold text-white mt-1">
+                            {u.expires_at ? format(new Date(u.expires_at), 'dd MMM yyyy', { locale: fr }) : '—'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Identifiants */}
+                      <div className="mt-2 rounded-2xl bg-black/40 border border-white/5 px-3 py-2.5 font-mono text-xs text-amber-400 break-all">
+                        {u.username} / {u.password}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="grid grid-cols-4 gap-2 mt-3">
+                        {u.phone && u.phone.trim() !== '' ? (
+                          <a href={getWhatsAppLink(u.phone, u.username, u.password)} target="_blank" rel="noopener noreferrer" className="h-11 rounded-xl bg-green-500/10 text-green-400 flex items-center justify-center active:scale-95 transition-all" title="Envoyer via WhatsApp">
+                            <MessageCircle className="w-5 h-5" />
+                          </a>
+                        ) : (
+                          <button disabled className="h-11 rounded-xl bg-white/5 text-gray-600 opacity-50 cursor-not-allowed flex items-center justify-center">
+                            <MessageCircle className="w-5 h-5" />
+                          </button>
+                        )}
+                        <button onClick={() => copyCreds(u)} className="h-11 rounded-xl bg-white/5 text-gray-300 flex items-center justify-center active:scale-95 transition-all" title="Copier">
+                          {copiedId === u.id ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+                        </button>
+                        <button onClick={() => toggleStatus(u)} className={`h-11 rounded-xl flex items-center justify-center active:scale-95 transition-all ${u.status === 'active' ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`} title={u.status === 'active' ? 'Suspendre' : 'Activer'}>
+                          {u.status === 'active' ? <PowerOff className="w-5 h-5" /> : <Power className="w-5 h-5" />}
+                        </button>
+                        <button onClick={() => deleteUser(u)} className="h-11 rounded-xl bg-white/5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 flex items-center justify-center active:scale-95 transition-all" title="Supprimer">
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
 
-        {/* ───────── ONGLET : FORFAITS (Simplifié) ───────── */}
+        {/* ───────── ONGLET : FORFAITS ───────── */}
         {activeTab === 'profiles' && (
           <>
             <button onClick={() => setIsProfileModalOpen(true)} className="w-full h-14 mb-5 flex items-center justify-center gap-2 bg-white text-black rounded-2xl text-base font-bold shadow-xl transition-all active:scale-[0.98]">
               <Tag className="w-5 h-5" /> Nouveau forfait
             </button>
-            {/* ... (Garde ta liste de forfaits actuelle) ... */}
+
+            {loading ? (
+              <LoadingSpinner message="Chargement des forfaits..." />
+            ) : profiles.length === 0 ? (
+              <div className="text-center py-14 rounded-[28px] bg-white/5 border border-white/10">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                  <Tag className="w-8 h-8" />
+                </div>
+                <p className="font-bold text-white">Aucun forfait configuré</p>
+                <p className="text-sm text-gray-400 mt-1">Créez un forfait pour pouvoir ajouter des abonnés.</p>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {profiles.map((p) => (
+                  <article key={p.id} className="pppoe-rise relative overflow-hidden rounded-[28px] bg-gradient-to-br from-gray-900 to-black border border-white/10 p-5 shadow-xl">
+                    <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+                    <div className="relative flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                        <Wifi className="w-5 h-5" />
+                      </div>
+                      <h3 className="font-extrabold text-white text-lg leading-tight truncate">{p.name}</h3>
+                    </div>
+                    <div className="relative mt-4 flex items-end gap-1.5">
+                      <span className="text-3xl font-black tracking-tight text-amber-400 tabular-nums">{p.price.toLocaleString()}</span>
+                      <span className="pb-1 text-sm text-gray-400 font-medium">FCFA</span>
+                    </div>
+                    <div className="relative mt-3 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/5 border border-white/10 text-gray-200 px-3 py-1.5 rounded-full">
+                        <Wifi className="w-3.5 h-3.5 text-amber-500" /> {p.rate_limit}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/5 border border-white/10 text-gray-200 px-3 py-1.5 rounded-full">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" /> {p.duration_days} jours
+                      </span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </>
         )}
 
-        {/* ───────── ONGLET : CONFIG PPPoE (Mis à jour) ───────── */}
+        {/* ───────── ONGLET : CONFIG PPPoE ───────── */}
         {activeTab === 'settings' && (
           <FormCard icon={<Settings className="w-6 h-6" />} title="Configuration PPPoE standard" subtitle="Paramètres appliqués sur le routeur sélectionné.">
             <form onSubmit={handleSetupInfrastructure} className="space-y-4">
@@ -394,8 +557,7 @@ export default function PPPoEPage() {
                   <input value={cfgDns} onChange={e => setCfgDns(e.target.value)} className={inputCls} required />
                 </Field>
               </div>
-              
-              {/* ✅ Nouveau champ : Interface d'écoute */}
+
               <Field label="Interface d'écoute PPPoE">
                 <select value={cfgInterface} onChange={e => setCfgInterface(e.target.value)} className={inputCls}>
                   <option value="bridge_pppoe">bridge_pppoe (Mode Simple / Sans VLAN)</option>
@@ -410,7 +572,7 @@ export default function PPPoEPage() {
           </FormCard>
         )}
 
-        {/* ───────── ONGLET : VLANs (Refonte complète) ───────── */}
+        {/* ───────── ONGLET : VLANs ───────── */}
         {activeTab === 'vlan' && (
           <FormCard icon={<Layers className="w-6 h-6" />} title="Configuration VLANs Dynamiques" subtitle="Ajoutez autant de réseaux isolés que nécessaire.">
             <Notice>
@@ -466,7 +628,7 @@ export default function PPPoEPage() {
           </FormCard>
         )}
 
-        {/* ───────── ONGLET : MULTI-WAN (Inchangé) ───────── */}
+        {/* ───────── ONGLET : MULTI-WAN ───────── */}
         {activeTab === 'wan' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -502,11 +664,12 @@ export default function PPPoEPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
                       <XAxis dataKey="time" stroke="#666" fontSize={10} tickMargin={10} />
                       <YAxis stroke="#666" fontSize={10} width={40} />
-<Tooltip 
-  contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '12px', fontSize: '12px' }}
-  itemStyle={{ color: '#fff' }}
-  formatter={(value) => [`${value} Mbps`, '']}
-/>                      <Area type="monotone" dataKey="download" name="Téléchargement" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorDownload)" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '12px', fontSize: '12px' }}
+                        itemStyle={{ color: '#fff' }}
+                        formatter={(value) => [`${value} Mbps`, '']}
+                      />
+                      <Area type="monotone" dataKey="download" name="Téléchargement" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorDownload)" />
                       <Area type="monotone" dataKey="upload" name="Envoi" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorUpload)" />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -550,7 +713,7 @@ export default function PPPoEPage() {
         )}
       </div>
 
-      {/* ───────── MODALS (Inchangés) ───────── */}
+      {/* ───────── MODALS ───────── */}
       <Sheet open={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} title="Nouveau forfait PPPoE">
         <form onSubmit={handleCreateProfile} className="space-y-4">
           <Field label="Nom du forfait"><input placeholder="Ex : Fibre 20M" required value={profName} onChange={e => setProfName(e.target.value)} className={inputCls} /></Field>

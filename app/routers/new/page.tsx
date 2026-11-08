@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
@@ -20,6 +20,7 @@ import {
   Router as RouterIcon,
   Tag
 } from 'lucide-react';
+import { useSubscription } from '@/app/context/SubscriptionContext';
 
 const routerSchema = z.object({
   name: z.string().min(3, 'Le nom doit contenir au moins 3 caractères'),
@@ -46,7 +47,13 @@ export default function NewRouterPage() {
 
   const nameValue = watch('name') || '';
   const step = command ? 2 : 1;
-
+  const { status } = useSubscription();
+useEffect(() => {
+  if (status && !status.active) {
+    toast.error('Renouvelez votre abonnement pour créer un routeur.');
+    router.push('/subscription');
+  }
+}, [status]);
   const onSubmit = async (data: RouterForm) => {
     setIsLoading(true);
     try {

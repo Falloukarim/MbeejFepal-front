@@ -9,6 +9,7 @@ import Header from './Header';
 import BottomNav from './BottomNav';
 import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { SubscriptionBanner } from './SubscriptionBanner';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -67,7 +68,9 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     // overflow-x-clip (et non overflow-hidden) pour que l'en-tête reste collé en haut
+    
     <div className="min-h-screen relative overflow-x-clip bg-[#0a0a0a] text-gray-100">
+            <SubscriptionBanner />
       {/* Effets de fond (Lueur ambrée) */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(217,119,6,0.15)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(217,119,6,0.05)_0%,transparent_50%)]" />

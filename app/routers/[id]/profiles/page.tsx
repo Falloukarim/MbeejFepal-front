@@ -6,8 +6,9 @@ import Layout from '@/components/layout/Layout';
 import { getProfiles, deleteProfile, getRouter, type HotspotProfile, type Router } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import ConfirmModal from '@/components/ui/ConfirmModal'; // ✅ IMPORT DU MODAL
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { useSubscription } from '@/app/context/SubscriptionContext'; // ✅ NOUVEAU
 
 type Filter = 'all' | 'active' | 'inactive';
 
@@ -26,8 +27,6 @@ const formatDuration = (minutes: number) => {
 
 const formatAmount = (price: number) => (price ?? 0).toLocaleString('fr-FR');
 
-
-
 export default function RouterProfilesPage() {
   const params = useParams();
   const router = useRouter();
@@ -37,10 +36,21 @@ export default function RouterProfilesPage() {
   const [currentRouter, setCurrentRouter] = useState<Router | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
-  
-  // ✅ States pour le modal de suppression
   const [toDelete, setToDelete] = useState<HotspotProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // ✅ NOUVEAU
+  const { status: subscriptionStatus } = useSubscription();
+  const canWrite = subscriptionStatus?.active ?? false;
+
+  const guardWrite = (e: React.MouseEvent, action = 'effectuer cette action') => {
+    if (!canWrite) {
+      e.preventDefault();
+      toast.error(`Renouvelez votre abonnement pour ${action}.`);
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     if (!routerId) return;
@@ -82,7 +92,7 @@ export default function RouterProfilesPage() {
 
       setCurrentRouter(adaptedRouter);
       setProfiles(transformedProfiles);
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
@@ -97,11 +107,16 @@ export default function RouterProfilesPage() {
       toast.success('Forfait supprimé');
       setToDelete(null);
       loadData();
-    } catch (error) {
-      toast.error('Erreur lors de la suppression');
-    } finally {
-      setDeleting(false);
+    } catch { toast.error('Erreur lors de la suppression'); }
+    finally { setDeleting(false); }
+  };
+
+  const requestDelete = (profile: HotspotProfile) => {
+    if (!canWrite) {
+      toast.error('Renouvelez votre abonnement pour supprimer un forfait.');
+      return;
     }
+    setToDelete(profile);
   };
 
   const stats = useMemo(() => {
@@ -123,17 +138,18 @@ export default function RouterProfilesPage() {
 
   const routerDisplayName =
     currentRouter?.name?.trim() || (loading ? 'Chargement…' : 'Routeur');
-    if (loading) {
-  return (
-    <Layout>
-      <LoadingSpinner message="Chargement des forfaits..." />
-    </Layout>
-  );
-}
+
+  if (loading) {
+    return (
+      <Layout>
+        <LoadingSpinner message="Chargement des forfaits..." />
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="mx-auto w-full max-w-6xl pb-28">
-        {/* ===== HEADER ===== */}
         <header className="sticky top-0 z-30 -mx-4 mb-6 flex items-end justify-between gap-3 border-b border-neutral-800/60 bg-[#0a0a0a]/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-2">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -146,9 +162,7 @@ export default function RouterProfilesPage() {
               </svg>
             </button>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-orange-500">
-                Forfaits
-              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-orange-500">Forfaits</p>
               <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-white sm:text-2xl">
                 {routerDisplayName}
               </h1>
@@ -156,37 +170,36 @@ export default function RouterProfilesPage() {
           </div>
 
           <Link
-            href={`/profiles/new?router_id=${routerId}`}
-            className="hidden shrink-0 items-center gap-2 rounded-xl bg-[#d97706] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-600/20 transition-all hover:bg-[#b45309] active:scale-95 sm:inline-flex"
+            href={canWrite ? `/profiles/new?router_id=${routerId}` : '#'}
+            onClick={(e) => guardWrite(e, 'créer un forfait')}
+            className={`hidden shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all sm:inline-flex ${
+              canWrite
+                ? 'bg-[#d97706] text-white shadow-lg shadow-amber-600/20 hover:bg-[#b45309] active:scale-95'
+                : 'bg-white/5 text-gray-500 cursor-not-allowed'
+            }`}
+            title={!canWrite ? 'Renouvelez votre abonnement' : ''}
           >
             <span className="text-lg leading-none">+</span>
             Nouveau forfait
           </Link>
         </header>
 
-        {/* ===== STATISTIQUES ===== */}
-        {!loading && profiles.length > 0 && (
+        {profiles.length > 0 && (
           <div className="mb-6 grid grid-cols-3 gap-3">
             {[
               { label: 'Total',    value: stats.total,    color: 'text-white' },
               { label: 'Actifs',   value: stats.active,   color: 'text-green-400' },
               { label: 'Inactifs', value: stats.inactive, color: 'text-neutral-400' },
             ].map((s) => (
-              <div
-                key={s.label}
-                className="rounded-xl border border-neutral-800/80 bg-[#111] px-4 py-3"
-              >
+              <div key={s.label} className="rounded-xl border border-neutral-800/80 bg-[#111] px-4 py-3">
                 <div className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</div>
-                <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-                  {s.label}
-                </div>
+                <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">{s.label}</div>
               </div>
             ))}
           </div>
         )}
 
-        {/* ===== FILTRES ===== */}
-        {!loading && profiles.length > 0 && (
+        {profiles.length > 0 && (
           <div className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((f) => (
               <button
@@ -199,11 +212,7 @@ export default function RouterProfilesPage() {
                 }`}
               >
                 {f.label}
-                <span
-                  className={`ml-2 text-xs ${
-                    filter === f.key ? 'text-orange-400/70' : 'text-neutral-600'
-                  }`}
-                >
+                <span className={`ml-2 text-xs ${filter === f.key ? 'text-orange-400/70' : 'text-neutral-600'}`}>
                   {f.count}
                 </span>
               </button>
@@ -211,83 +220,81 @@ export default function RouterProfilesPage() {
           </div>
         )}
 
-        {/* ===== LISTE ===== */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {visible.map((profile) => (
+            <article
+              key={profile.id}
+              className={`group relative overflow-hidden rounded-2xl border bg-[#111] transition-colors ${
+                profile.is_active ? 'border-orange-500/20' : 'border-neutral-800/80'
+              }`}
+            >
+              {profile.is_active && (
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+              )}
 
-          {!loading &&
-            visible.map((profile) => (
-              <article
-                key={profile.id}
-                className={`group relative overflow-hidden rounded-2xl border bg-[#111] transition-colors ${
-                  profile.is_active ? 'border-orange-500/20' : 'border-neutral-800/80'
-                }`}
-              >
-                {profile.is_active && (
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
-                )}
-
-                <div className="p-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          profile.is_active ? 'bg-green-400 animate-pulse' : 'bg-neutral-500'
-                        }`}
-                      />
-                      <span className={profile.is_active ? 'text-green-400' : 'text-neutral-400'}>
-                        {profile.is_active ? 'Actif' : 'Inactif'}
-                      </span>
+              <div className="p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                    <span className={`h-1.5 w-1.5 rounded-full ${profile.is_active ? 'bg-green-400 animate-pulse' : 'bg-neutral-500'}`} />
+                    <span className={profile.is_active ? 'text-green-400' : 'text-neutral-400'}>
+                      {profile.is_active ? 'Actif' : 'Inactif'}
                     </span>
-                    <span className="font-mono text-[10px] text-neutral-600">
-                      #{profile.id}
-                    </span>
-                  </div>
-
-                  <h3 className="truncate text-base font-semibold text-white">
-                    {profile.profile_name}
-                  </h3>
-                  <div className="mt-1 mb-4 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-bold tabular-nums tracking-tight text-orange-400">
-                      {formatAmount(profile.price)}
-                    </span>
-                    <span className="text-xs font-medium text-orange-400/60">
-                      {profile.currency}
-                    </span>
-                  </div>
-
-                  <div className="mb-4 flex flex-wrap gap-1.5">
-                    <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
-                      {formatDuration(profile.duration_minutes)}
-                    </span>
-                    {profile.bandwidth_limit && (
-                      <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
-                        {profile.bandwidth_limit}
-                      </span>
-                    )}
-                    <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
-                      {profile.max_devices} appareil{profile.max_devices > 1 ? 's' : ''}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 border-t border-neutral-800/60 pt-4">
-                    <Link
-                      href={`/profiles/${profile.id}`}
-                      className="flex h-9 items-center justify-center rounded-lg text-xs font-semibold text-orange-400 ring-1 ring-orange-500/20 transition-colors hover:bg-orange-500/10 active:scale-95"
-                    >
-                      Modifier
-                    </Link>
-                    <button
-                      onClick={() => setToDelete(profile)}
-                      className="flex h-9 items-center justify-center rounded-lg text-xs font-semibold text-neutral-400 ring-1 ring-neutral-700/60 transition-colors hover:bg-red-500/10 hover:text-red-400 active:scale-95"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
+                  </span>
+                  <span className="font-mono text-[10px] text-neutral-600">#{profile.id}</span>
                 </div>
-              </article>
-            ))}
 
-          {!loading && profiles.length === 0 && (
+                <h3 className="truncate text-base font-semibold text-white">{profile.profile_name}</h3>
+                <div className="mt-1 mb-4 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold tabular-nums tracking-tight text-orange-400">
+                    {formatAmount(profile.price)}
+                  </span>
+                  <span className="text-xs font-medium text-orange-400/60">{profile.currency}</span>
+                </div>
+
+                <div className="mb-4 flex flex-wrap gap-1.5">
+                  <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
+                    {formatDuration(profile.duration_minutes)}
+                  </span>
+                  {profile.bandwidth_limit && (
+                    <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
+                      {profile.bandwidth_limit}
+                    </span>
+                  )}
+                  <span className="rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 ring-1 ring-white/5">
+                    {profile.max_devices} appareil{profile.max_devices > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 border-t border-neutral-800/60 pt-4">
+                  <Link
+                    href={canWrite ? `/profiles/${profile.id}` : '#'}
+                    onClick={(e) => guardWrite(e, 'modifier un forfait')}
+                    className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                      canWrite
+                        ? 'text-orange-400 ring-1 ring-orange-500/20 hover:bg-orange-500/10 active:scale-95'
+                        : 'text-gray-600 ring-1 ring-white/5 cursor-not-allowed'
+                    }`}
+                    title={!canWrite ? 'Renouvelez votre abonnement' : ''}
+                  >
+                    Modifier
+                  </Link>
+                  <button
+                    onClick={() => requestDelete(profile)}
+                    className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-colors ${
+                      canWrite
+                        ? 'text-neutral-400 ring-1 ring-neutral-700/60 hover:bg-red-500/10 hover:text-red-400 active:scale-95'
+                        : 'text-gray-600 ring-1 ring-white/5 cursor-not-allowed'
+                    }`}
+                    title={!canWrite ? 'Renouvelez votre abonnement' : ''}
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+
+          {profiles.length === 0 && (
             <div className="col-span-full flex flex-col items-center rounded-2xl border border-neutral-800/80 bg-[#111] px-6 py-16 text-center">
               <div className="mb-4 text-3xl text-neutral-700">
                 <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -300,8 +307,14 @@ export default function RouterProfilesPage() {
                 Créez le premier forfait de ce routeur pour commencer à vendre l'accès WiFi.
               </p>
               <Link
-                href={`/profiles/new?router_id=${routerId}`}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#d97706] px-5 text-sm font-semibold text-white shadow-lg shadow-amber-600/20 active:scale-95 transition-transform"
+                href={canWrite ? `/profiles/new?router_id=${routerId}` : '#'}
+                onClick={(e) => guardWrite(e, 'créer un forfait')}
+                className={`inline-flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-semibold transition-transform ${
+                  canWrite
+                    ? 'bg-[#d97706] text-white shadow-lg shadow-amber-600/20 active:scale-95'
+                    : 'bg-white/5 text-gray-500 cursor-not-allowed'
+                }`}
+                title={!canWrite ? 'Renouvelez votre abonnement' : ''}
               >
                 <span className="text-lg leading-none">+</span>
                 Créer un forfait
@@ -309,7 +322,7 @@ export default function RouterProfilesPage() {
             </div>
           )}
 
-          {!loading && profiles.length > 0 && visible.length === 0 && (
+          {profiles.length > 0 && visible.length === 0 && (
             <div className="col-span-full rounded-2xl border border-neutral-800/80 bg-[#111] py-12 text-center text-sm text-neutral-500">
               Aucun forfait dans cette catégorie
             </div>
@@ -317,19 +330,24 @@ export default function RouterProfilesPage() {
         </div>
       </div>
 
-      {/* Bouton flottant (mobile) */}
-      {!loading && profiles.length > 0 && (
+      {/* Bouton flottant mobile : bloqué aussi */}
+      {profiles.length > 0 && (
         <Link
-          href={`/profiles/new?router_id=${routerId}`}
+          href={canWrite ? `/profiles/new?router_id=${routerId}` : '#'}
+          onClick={(e) => guardWrite(e, 'créer un forfait')}
           aria-label="Nouveau forfait"
-          className="fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#d97706] text-3xl font-light text-white shadow-xl shadow-amber-600/40 transition-transform active:scale-90 sm:hidden"
+          className={`fixed bottom-6 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full text-3xl font-light shadow-xl transition-transform sm:hidden ${
+            canWrite
+              ? 'bg-[#d97706] text-white shadow-amber-600/40 active:scale-90'
+              : 'bg-white/10 text-gray-500 cursor-not-allowed'
+          }`}
           style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
+          title={!canWrite ? 'Renouvelez votre abonnement' : ''}
         >
           +
         </Link>
       )}
 
-      {/* ✅ MODAL DE CONFIRMATION UNIFIÉ */}
       <ConfirmModal
         isOpen={toDelete !== null}
         title="Supprimer ce forfait ?"
