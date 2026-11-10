@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form';
 import {
   Save, ShieldAlert, Copy, Check, Upload, ImageIcon, X, ArrowLeft, Wifi, Clock, Package,
   Palette, Terminal, Plus, Settings2, Smartphone, Monitor, RotateCcw, Gauge, Activity,
-  Infinity as InfinityIcon,
+  Infinity as InfinityIcon, Loader2, // ✅ Ajout de Loader2 pour le spinner
 } from 'lucide-react';
 import { QuotaWidget } from '@/components/routers/QuotaWidget';
 
@@ -219,6 +219,7 @@ export default function RouterDetailPage() {
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [removingLogo, setRemovingLogo] = useState(false); // ✅ NOUVEAU STATE
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -348,16 +349,25 @@ export default function RouterDetailPage() {
     if (file) await uploadLogoFile(file);
   };
 
+  // ✅ NOUVELLE FONCTION REMOVELOGO AVEC GESTION DE CHARGEMENT
   const removeLogo = async () => {
     if (!routerId) return;
     if (!confirm('Supprimer le logo du portail ?')) return;
+
+    setRemovingLogo(true);
     try {
-      await api.put(`/api/routers/${routerId}/logo`, { logo_url: '', logo_public_id: '' });
+      await api.put(`/api/routers/${routerId}/logo`, {
+        logo_url: '',
+        logo_public_id: '',
+      });
       setLogoPreview('');
       setRouterData((prev) => (prev ? { ...prev, logo_url: '' } : null));
       toast.success('Logo supprimé');
-    } catch {
-      toast.error('Erreur suppression logo');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.response?.data || 'Erreur lors de la suppression du logo');
+    } finally {
+      setRemovingLogo(false);
     }
   };
 
@@ -369,7 +379,6 @@ export default function RouterDetailPage() {
         daily_quota_gb: data.daily_quota_gb,
         portal_name: data.portal_name,
         primary_color: data.primary_color,
-        // PAS de logo_url : géré par /logo (Cloudinary)
       });
       toast.success('Routeur mis à jour avec succès !');
       setRouterData((prev) => (prev ? { ...prev, name: data.name } : null));
@@ -434,12 +443,6 @@ export default function RouterDetailPage() {
           <div className="min-w-0">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <h1 className="truncate text-2xl font-bold tracking-tight text-white sm:text-3xl">{routerData.name}</h1>
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
-                isOnline ? 'border-green-500/30 bg-green-500/15 text-green-400' : 'border-red-500/30 bg-red-500/15 text-red-400'
-              }`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'animate-pulse bg-green-400' : 'bg-red-400'}`} />
-                {isOnline ? 'Actif' : 'Inactif'}
-              </span>
             </div>
             <p className="text-sm text-gray-400">Personnalisez le portail, réglez le quota et gérez les forfaits.</p>
           </div>
@@ -482,9 +485,9 @@ export default function RouterDetailPage() {
         ))}
       </div>
 
-      {/* ============ FORMULAIRE (tous les onglets restent montés) ============ */}
+      {/* ============ FORMULAIRE ============ */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* ---------- ONGLET PORTAIL : réglages + aperçu complet ---------- */}
+        {/* ---------- ONGLET PORTAIL ---------- */}
         <div className={tab === 'portal' ? 'grid grid-cols-1 items-start gap-6 lg:grid-cols-[400px_1fr]' : 'hidden'}>
           {/* Réglages */}
           <div className="order-2 space-y-5 lg:order-1">
@@ -560,7 +563,7 @@ export default function RouterDetailPage() {
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={uploadingLogo}
+                      disabled={uploadingLogo || removingLogo}
                       onClick={() => fileInputRef.current?.click()}
                       className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${
                         uploadingLogo ? 'cursor-not-allowed bg-white/5 text-gray-500' : 'border border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 active:scale-95'
@@ -569,12 +572,27 @@ export default function RouterDetailPage() {
                       <Upload className="h-4 w-4" />
                       {uploadingLogo ? 'Upload...' : logoPreview ? 'Remplacer' : 'Choisir'}
                     </button>
+                    
+                    {/* ✅ BOUTON RETIRER MIS À JOUR */}
                     {logoPreview && !uploadingLogo && (
-                      <button type="button" onClick={removeLogo} className="inline-flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/20">
-                        <X className="h-3.5 w-3.5" /> Retirer
+                      <button 
+                        type="button" 
+                        onClick={removeLogo} 
+                        disabled={removingLogo}
+                        className="inline-flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {removingLogo ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Suppression...
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-3.5 w-3.5" /> Retirer
+                          </>
+                        )}
                       </button>
                     )}
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} className="hidden" />
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo || removingLogo} className="hidden" />
                   </div>
                   <p className="mt-2 text-xs text-gray-500">Glissez une image ici • JPG, PNG, SVG • max 2 Mo</p>
                   {uploadingLogo && (
@@ -593,7 +611,7 @@ export default function RouterDetailPage() {
             </Panel>
           </div>
 
-          {/* Aperçu complet, fixe pendant le défilement */}
+          {/* Aperçu complet */}
           <div className="order-1 lg:sticky lg:top-4 lg:order-2">
             <Panel className="p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
@@ -742,7 +760,7 @@ export default function RouterDetailPage() {
           </Panel>
         </div>
 
-        {/* ---------- BARRE D'ENREGISTREMENT (commune à tous les onglets) ---------- */}
+        {/* ---------- BARRE D'ENREGISTREMENT ---------- */}
         <div className={`sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur transition-all ${
           isDirty ? 'border-amber-500/30 bg-gray-900/95' : 'border-white/10 bg-gray-900/70'
         }`}>
@@ -759,7 +777,7 @@ export default function RouterDetailPage() {
             )}
             <button
               type="submit"
-              disabled={isSubmitting || uploadingLogo || !isDirty}
+              disabled={isSubmitting || uploadingLogo || removingLogo || !isDirty}
               className="flex items-center gap-2 rounded-xl bg-[#d97706] px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#b45309] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Save className="h-4 w-4" />
