@@ -114,7 +114,6 @@ export default function RouterDetailPage() {
       formData.append('api_key', api_key);
       formData.append('timestamp', timestamp);
       formData.append('signature', signature);
-      formData.append('folder', folder);
       formData.append('public_id', public_id);
 
       const uploadRes: any = await new Promise((resolve, reject) => {
