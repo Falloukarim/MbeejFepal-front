@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
 import { getUsers, updateUserRole, type User } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { Link, ShieldCheck } from 'lucide-react';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -79,6 +80,13 @@ export default function AdminUsersPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Gestion des utilisateurs</h1>
         <p className="text-gray-600 mt-2">Administration des comptes</p>
+        <Link 
+  href="/admin/revenues" 
+  className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-colors"
+>
+  <ShieldCheck className="w-5 h-5 text-emerald-500" />
+  <span className="font-medium">Revenus & Trésorerie</span>
+</Link>
       </div>
 
       <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-xl overflow-hidden">

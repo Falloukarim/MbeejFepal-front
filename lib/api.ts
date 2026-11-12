@@ -80,6 +80,21 @@ export interface Transaction {
   created_at: string;
 }
 
+// ==========================================
+// ADMIN : VUE D'ENSEMBLE FINANCIÈRE
+// ==========================================
+export interface FinancialOverview {
+  total_payin: number;
+  total_wisp_wallets: number;
+  total_mbeej_revenue: number;
+  total_payouts_paid: number;
+}
+
+export const getFinancialOverview = async (): Promise<FinancialOverview> => {
+  const response = await api.get<FinancialOverview>('/admin/financial-overview');
+  return response.data;
+};
+
 export interface Session {
   id: number;
   zone_code: string | null;
