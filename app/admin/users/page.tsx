@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Layout from '@/components/layout/Layout';
 import { getUsers, updateUserRole, type User } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Link, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -18,28 +19,29 @@ export default function AdminUsersPage() {
     try {
       const data = await getUsers();
       console.log('📦 Données utilisateurs brutes:', JSON.stringify(data, null, 2));
-      
+
       // Transformation robuste des données du backend
-      const adaptedUsers: User[] = Array.isArray(data) 
-        ? data.map((item: any) => {
-            console.log('🔄 Transformation item:', item);
-            
-            return {
-              id: item.ID || item.id || '',
-              name: item.Name || item.name || 'Nom non défini',
-              email: item.Email || item.email || 'Email non défini',
-              phone: item.Phone || item.phone || 'Téléphone non défini',
-              role: (item.Role || item.role || 'USER') as 'ADMIN' | 'USER',
-              is_active: item.IsActive !== undefined ? item.IsActive : (item.is_active || false),
-              created_at: item.CreatedAt || item.created_at || new Date().toISOString()
-            };
-          })
-          .filter(user => user.id) // Ne garder que ceux avec un ID valide
+      const adaptedUsers: User[] = Array.isArray(data)
+        ? data
+            .map((item: any) => {
+              console.log('🔄 Transformation item:', item);
+
+              return {
+                id: item.ID || item.id || '',
+                name: item.Name || item.name || 'Nom non défini',
+                email: item.Email || item.email || 'Email non défini',
+                phone: item.Phone || item.phone || 'Téléphone non défini',
+                role: (item.Role || item.role || 'USER') as 'ADMIN' | 'USER',
+                is_active: item.IsActive !== undefined ? item.IsActive : (item.is_active || false),
+                created_at: item.CreatedAt || item.created_at || new Date().toISOString(),
+              };
+            })
+            .filter((user) => user.id) // Ne garder que ceux avec un ID valide
         : [];
-      
+
       console.log('✅ Utilisateurs après transformation:', adaptedUsers);
       setUsers(adaptedUsers);
-      
+
       if (adaptedUsers.length === 0) {
         toast('Aucun utilisateur trouvé', { icon: 'ℹ️' });
       }
@@ -80,13 +82,14 @@ export default function AdminUsersPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Gestion des utilisateurs</h1>
         <p className="text-gray-600 mt-2">Administration des comptes</p>
-        <Link 
-  href="/admin/revenues" 
-  className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-colors"
->
-  <ShieldCheck className="w-5 h-5 text-emerald-500" />
-  <span className="font-medium">Revenus & Trésorerie</span>
-</Link>
+
+        <Link
+          href="/admin/revenues"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+        >
+          <ShieldCheck className="h-5 w-5" />
+          Revenus &amp; Trésorerie
+        </Link>
       </div>
 
       <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
@@ -110,7 +113,7 @@ export default function AdminUsersPage() {
               {users.map((user, index) => {
                 // Générer une clé unique
                 const key = user?.id ? `user-${user.id}` : `user-index-${index}`;
-                
+
                 return (
                   <tr key={key} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -123,20 +126,20 @@ export default function AdminUsersPage() {
                       <div className="text-sm text-gray-500">{user.phone}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.role === 'ADMIN' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
                         {user.role}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.is_active 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {user.is_active ? 'Actif' : 'Inactif'}
                       </span>
                     </td>
