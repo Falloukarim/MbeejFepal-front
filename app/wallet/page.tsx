@@ -17,6 +17,7 @@ import {
   Lock,
   TrendingUp,
   TrendingDown,
+  Check,
 } from 'lucide-react';
 
 const MIN_WITHDRAWAL = 25000;
@@ -30,7 +31,7 @@ export default function WalletPage() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [filter, setFilter] = useState<TxFilter>('all');
-
+  const [successWithdraw, setSuccessWithdraw] = useState(false);
   const fetchData = useCallback(async () => {
     try {
       let walletData = null;
@@ -108,9 +109,8 @@ export default function WalletPage() {
     setWithdrawing(true);
     try {
       await requestWithdrawal();
-      toast.success("Virement initié ! Vous recevrez l'argent sur Wave.");
       setConfirmOpen(false);
-      setTimeout(() => window.location.reload(), 1500);
+      setSuccessWithdraw(true); // ✅ Affiche le modal
     } catch (error: any) {
       toast.error(error.response?.data || 'Erreur lors du retrait');
     } finally {
@@ -384,6 +384,27 @@ if (loading) {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+            {/* ✅ MODAL DE SUCCÈS */}
+      {successWithdraw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-white/10 rounded-[28px] p-6 max-w-md w-full text-center shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Transfert en cours ....!</h2>
+            <p className="text-gray-400 mb-6 leading-relaxed">
+              <br/>
+              Réception sous  <strong className="text-white">10 minutes</strong>.
+            </p>
+            <button 
+              onClick={() => { setSuccessWithdraw(false); window.location.reload(); }}
+              className="w-full h-12 rounded-xl bg-white text-black font-bold active:scale-95 transition-all"
+            >
+              Retour au portefeuille
+            </button>
           </div>
         </div>
       )}
