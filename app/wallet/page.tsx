@@ -20,7 +20,7 @@ import {
   Check,
 } from 'lucide-react';
 
-const MIN_WITHDRAWAL = 25000;
+const MIN_WITHDRAWAL = 100;
 
 type TxFilter = 'all' | 'in' | 'out';
 
