@@ -159,8 +159,11 @@ export interface RegisterData {
   password: string;
 }
 
-export interface ApiError { message: string; statusCode?: number; }
-
+export interface ApiError {
+  message: string;
+  error?: string;       // ✅ NOUVEAU — code métier du backend
+  statusCode?: number;
+}
 // ==========================================
 // AXIOS SETUP
 // ==========================================
