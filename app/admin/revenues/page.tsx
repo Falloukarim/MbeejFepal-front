@@ -122,7 +122,6 @@ export default function AdminRevenuesPage() {
             <div className="flex items-center justify-between pt-2">
               <div>
                 <span className="text-white font-bold block">Trésorerie Nette (Cash en main)</span>
-                <span className="text-xs text-gray-500">Argent que tu détiens physiquement sur ton compte</span>
               </div>
               <span className="text-2xl font-black text-blue-400">{cashAvailable.toLocaleString()} FCFA</span>
             </div>

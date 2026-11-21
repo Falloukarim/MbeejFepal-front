@@ -20,7 +20,10 @@ import {
   Check,
 } from 'lucide-react';
 
-const MIN_WITHDRAWAL = 100;
+// ✅ Aligné avec le backend (MinWithdrawalAmount)
+const MIN_WITHDRAWAL = 10000;
+// ✅ Aligné avec le backend (WithdrawalFeeRate)
+const FEE_RATE = 0.05;
 
 type TxFilter = 'all' | 'in' | 'out';
 
@@ -31,13 +34,14 @@ export default function WalletPage() {
   const [withdrawing, setWithdrawing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [filter, setFilter] = useState<TxFilter>('all');
-  const [successWithdraw, setSuccessWithdraw] = useState(false);
+  const [successWithdraw, setSuccessWithdraw] = useState<{ net: number; gross: number; fee: number } | null>(null);
+
   const fetchData = useCallback(async () => {
     try {
       let walletData = null;
       try {
         walletData = await getWallet();
-      } catch (walletError) {
+      } catch {
         console.log('ℹ️ Pas de wallet existant');
       }
 
@@ -57,7 +61,6 @@ export default function WalletPage() {
 
         const adaptedTransactions = Array.isArray(transactionsData)
           ? transactionsData.map((item: any) => {
-              // On nettoie la description pour enlever les "session XXX"
               let desc = item.Description || item.description || '';
               desc = desc.replace(/session \d+/gi, '').replace(/\(Net après frais\)/gi, '').trim();
               if (!desc) desc = 'Crédit de paiement';
@@ -65,7 +68,7 @@ export default function WalletPage() {
               return {
                 id: item.ID || item.id,
                 wallet_id: item.WalletID || item.wallet_id,
-                session_id: item.SessionID || item.session_id, // gardé pour le backend mais pas affiché
+                session_id: item.SessionID || item.session_id,
                 amount: item.Amount || item.amount || 0,
                 type: item.Type || item.type || 'CREDIT',
                 description: desc,
@@ -75,10 +78,10 @@ export default function WalletPage() {
           : [];
 
         setTransactions(adaptedTransactions);
-      } catch (transError) {
+      } catch {
         setTransactions([]);
       }
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors du chargement');
     } finally {
       setLoading(false);
@@ -94,11 +97,15 @@ export default function WalletPage() {
   const progress = Math.min(100, Math.round((displayWallet.balance / MIN_WITHDRAWAL) * 100));
   const remaining = Math.max(0, MIN_WITHDRAWAL - displayWallet.balance);
 
-  // Ouvre la feuille de confirmation (remplace le confirm() du navigateur)
+  // ✅ Calcul identique au backend : net = floor(gross * 0.95), fee = gross - net
+  const grossAmount = displayWallet.balance;
+  const netAmount = Math.floor(grossAmount * (1 - FEE_RATE));
+  const feeAmount = grossAmount - netAmount;
+
   const requestWithdraw = () => {
     if (!wallet) return;
     if (wallet.balance < MIN_WITHDRAWAL) {
-      toast.error('Le solde minimum pour un retrait est de 25 000 FCFA.');
+      toast.error(`Le solde minimum pour un retrait est de ${MIN_WITHDRAWAL.toLocaleString('fr-FR')} FCFA.`);
       return;
     }
     setConfirmOpen(true);
@@ -107,12 +114,35 @@ export default function WalletPage() {
   const handleWithdraw = async () => {
     if (!wallet) return;
     setWithdrawing(true);
+
+    // Capture AVANT l'appel (au cas où le reload change le state)
+    const captured = { gross: grossAmount, net: netAmount, fee: feeAmount };
+
     try {
       await requestWithdrawal();
       setConfirmOpen(false);
-      setSuccessWithdraw(true); // ✅ Affiche le modal
+      setSuccessWithdraw(captured);
     } catch (error: any) {
-      toast.error(error.response?.data || 'Erreur lors du retrait');
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      // Le backend renvoie { error, message } — on extrait proprement
+      const backendMsg =
+        typeof data === 'string'
+          ? data
+          : data?.message || data?.error || null;
+
+      if (status === 409) {
+        toast.error('Un retrait est déjà en cours. Patientez la confirmation.', { duration: 6000 });
+      } else if (status === 503) {
+        toast.error(
+          'Le transfert est en cours de vérification. Si vous ne recevez rien sous 1h, contactez le support.',
+          { duration: 8000 }
+        );
+      } else if (status === 401) {
+        toast.error('Session expirée, reconnectez-vous.');
+      } else {
+        toast.error(backendMsg || 'Erreur lors du retrait');
+      }
     } finally {
       setWithdrawing(false);
     }
@@ -128,7 +158,6 @@ export default function WalletPage() {
     return { inTotal, outTotal };
   }, [transactions]);
 
-  // Filtre + regroupement par jour
   const groups = useMemo(() => {
     const filtered = transactions
       .filter((t) => (filter === 'all' ? true : filter === 'in' ? t.type === 'CREDIT' : t.type !== 'CREDIT'))
@@ -140,7 +169,11 @@ export default function WalletPage() {
       const d = new Date(t.created_at);
       const key = format(d, 'yyyy-MM-dd');
       if (!map.has(key)) {
-        const label = isToday(d) ? "Aujourd'hui" : isYesterday(d) ? 'Hier' : format(d, 'EEEE dd MMMM yyyy', { locale: fr });
+        const label = isToday(d)
+          ? "Aujourd'hui"
+          : isYesterday(d)
+          ? 'Hier'
+          : format(d, 'EEEE dd MMMM yyyy', { locale: fr });
         map.set(key, { label, items: [] });
       }
       map.get(key)!.items.push(t);
@@ -148,13 +181,13 @@ export default function WalletPage() {
     return Array.from(map.values());
   }, [transactions, filter]);
 
-if (loading) {
-  return (
-    <Layout>
-      <LoadingSpinner message="Chargement du portefeuille..." />
-    </Layout>
-  );
-}
+  if (loading) {
+    return (
+      <Layout>
+        <LoadingSpinner message="Chargement du portefeuille..." />
+      </Layout>
+    );
+  }
 
   const filters: { key: TxFilter; label: string }[] = [
     { key: 'all', label: 'Tout' },
@@ -174,7 +207,6 @@ if (loading) {
       `}</style>
 
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-10">
-        {/* En-tête */}
         <header className="mb-5">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-amber-500 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wider mb-3">
             <WalletIcon className="w-3.5 h-3.5" /> PORTEFEUILLE
@@ -196,25 +228,34 @@ if (loading) {
           </div>
 
           <div className="relative mt-2 flex items-end gap-2">
-            <span className="text-5xl font-black tracking-tight text-white tabular-nums">{displayWallet.balance.toLocaleString()}</span>
+            <span className="text-5xl font-black tracking-tight text-white tabular-nums">
+              {displayWallet.balance.toLocaleString('fr-FR')}
+            </span>
             <span className="pb-1.5 text-lg font-semibold text-amber-300">{displayWallet.currency}</span>
           </div>
 
-          {/* Progression vers le seuil de retrait */}
           <div className="relative mt-5">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="text-gray-300 font-medium">
-                {canWithdraw ? 'Retrait disponible' : `Encore ${remaining.toLocaleString()} FCFA pour pouvoir retirer`}
+                {canWithdraw
+                  ? 'Retrait disponible'
+                  : `Encore ${remaining.toLocaleString('fr-FR')} FCFA pour pouvoir retirer`}
               </span>
               <span className="text-gray-400 tabular-nums">{progress}%</span>
             </div>
             <div className="h-2 rounded-full bg-white/10 overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-700 ${canWithdraw ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
+                className={`h-full rounded-full transition-all duration-700 ${
+                  canWithdraw
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-400'
+                    : 'bg-gradient-to-r from-amber-500 to-orange-500'
+                }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-[11px] text-gray-500 mt-1.5">Seuil minimum : {MIN_WITHDRAWAL.toLocaleString()} FCFA</p>
+            <p className="text-[11px] text-gray-500 mt-1.5">
+              Seuil minimum : {MIN_WITHDRAWAL.toLocaleString('fr-FR')} FCFA
+            </p>
           </div>
 
           <button
@@ -227,7 +268,11 @@ if (loading) {
             }`}
           >
             {canWithdraw ? <ArrowDownToLine className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
-            {withdrawing ? 'Traitement...' : canWithdraw ? 'Retirer vers Wave' : `Min. ${MIN_WITHDRAWAL.toLocaleString()} FCFA`}
+            {withdrawing
+              ? 'Traitement...'
+              : canWithdraw
+              ? 'Retirer vers Wave'
+              : `Min. ${MIN_WITHDRAWAL.toLocaleString('fr-FR')} FCFA`}
           </button>
         </section>
 
@@ -239,7 +284,8 @@ if (loading) {
             </div>
             <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">Entrées</p>
             <p className="text-lg font-extrabold text-white tabular-nums mt-0.5">
-              {totals.inTotal.toLocaleString()} <span className="text-xs font-medium text-gray-400">{displayWallet.currency}</span>
+              {totals.inTotal.toLocaleString('fr-FR')}{' '}
+              <span className="text-xs font-medium text-gray-400">{displayWallet.currency}</span>
             </p>
           </div>
           <div className="wl-rise rounded-[24px] bg-white/5 border border-white/10 p-4" style={{ animationDelay: '110ms' }}>
@@ -248,7 +294,8 @@ if (loading) {
             </div>
             <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">Sorties</p>
             <p className="text-lg font-extrabold text-white tabular-nums mt-0.5">
-              {totals.outTotal.toLocaleString()} <span className="text-xs font-medium text-gray-400">{displayWallet.currency}</span>
+              {totals.outTotal.toLocaleString('fr-FR')}{' '}
+              <span className="text-xs font-medium text-gray-400">{displayWallet.currency}</span>
             </p>
           </div>
         </div>
@@ -258,7 +305,9 @@ if (loading) {
           <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
             <History className="w-5 h-5 text-amber-500" /> Historique
           </h2>
-          <span className="text-xs text-gray-500 font-semibold">{transactions.length} opération{transactions.length > 1 ? 's' : ''}</span>
+          <span className="text-xs text-gray-500 font-semibold">
+            {transactions.length} opération{transactions.length > 1 ? 's' : ''}
+          </span>
         </div>
 
         {transactions.length > 0 && (
@@ -295,7 +344,9 @@ if (loading) {
           <div className="space-y-5">
             {groups.map((g) => (
               <section key={g.label}>
-                <h3 className="px-1 mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-500 capitalize">{g.label}</h3>
+                <h3 className="px-1 mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-500 capitalize">
+                  {g.label}
+                </h3>
                 <div className="rounded-[28px] bg-gradient-to-br from-gray-900 to-black border border-white/10 overflow-hidden divide-y divide-white/5 shadow-xl">
                   {g.items.map((transaction) => {
                     const credit = transaction.type === 'CREDIT';
@@ -312,12 +363,20 @@ if (loading) {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-white truncate">{transaction.description}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{format(new Date(transaction.created_at), 'HH:mm', { locale: fr })}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {format(new Date(transaction.created_at), 'HH:mm', { locale: fr })}
+                          </p>
                         </div>
-                        <p className={`shrink-0 text-right font-extrabold tabular-nums ${credit ? 'text-green-400' : 'text-red-400'}`}>
+                        <p
+                          className={`shrink-0 text-right font-extrabold tabular-nums ${
+                            credit ? 'text-green-400' : 'text-red-400'
+                          }`}
+                        >
                           {credit ? '+' : '-'}
-                          {transaction.amount.toLocaleString()}
-                          <span className="ml-1 text-[11px] font-semibold text-gray-500">{displayWallet.currency}</span>
+                          {transaction.amount.toLocaleString('fr-FR')}
+                          <span className="ml-1 text-[11px] font-semibold text-gray-500">
+                            {displayWallet.currency}
+                          </span>
                         </p>
                       </div>
                     );
@@ -329,7 +388,7 @@ if (loading) {
         )}
       </div>
 
-      {/* Feuille de confirmation du retrait */}
+      {/* ============ CONFIRMATION ============ */}
       {confirmOpen && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm wl-fade"
@@ -352,14 +411,32 @@ if (loading) {
               </button>
             </div>
 
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-center">
-              <p className="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Montant à retirer</p>
-              <p className="mt-1 text-4xl font-black tracking-tight text-amber-400 tabular-nums">
-                {displayWallet.balance.toLocaleString()}
-                <span className="ml-2 text-base font-semibold text-gray-300">FCFA</span>
-              </p>
-              <p className="text-sm text-gray-400 mt-2">Virement vers votre compte Wave</p>
+            {/* Récap financier */}
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+              <div className="flex items-center justify-between text-sm text-gray-300">
+                <span>Montant brut</span>
+                <span className="font-bold text-white tabular-nums">
+                  {grossAmount.toLocaleString('fr-FR')} FCFA
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-gray-300 mt-2">
+                <span>Frais (5 %)</span>
+                <span className="font-bold text-red-400 tabular-nums">
+                  −{feeAmount.toLocaleString('fr-FR')} FCFA
+                </span>
+              </div>
+              <div className="border-t border-amber-500/20 mt-3 pt-3 flex items-center justify-between">
+                <span className="text-sm font-semibold text-amber-300">Vous recevrez</span>
+                <span className="text-2xl font-black text-amber-400 tabular-nums">
+                  {netAmount.toLocaleString('fr-FR')}
+                  <span className="ml-1 text-sm font-bold text-amber-300">FCFA</span>
+                </span>
+              </div>
             </div>
+
+            <p className="text-xs text-gray-400 mt-3 text-center">
+              Virement vers votre compte Wave configuré dans votre profil.
+            </p>
 
             <div className="grid grid-cols-2 gap-3 mt-5">
               <button
@@ -387,20 +464,34 @@ if (loading) {
           </div>
         </div>
       )}
-            {/* ✅ MODAL DE SUCCÈS */}
+
+      {/* ============ SUCCÈS ============ */}
       {successWithdraw && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-white/10 rounded-[28px] p-6 max-w-md w-full text-center shadow-2xl">
             <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Transfert en cours ....!</h2>
-            <p className="text-gray-400 mb-6 leading-relaxed">
-              <br/>
-              Réception sous  <strong className="text-white">10 minutes</strong>.
+            <h2 className="text-2xl font-bold text-white mb-2">Votre compte Wave a été crédité ✅</h2>
+            <p className="text-gray-400 mb-5 leading-relaxed">
+              <span className="text-3xl font-black text-green-400 tabular-nums block mb-1">
+                {successWithdraw.net.toLocaleString('fr-FR')} FCFA
+              </span>
+              Vérifiez votre application Wave pour confirmer la réception.
             </p>
-            <button 
-              onClick={() => { setSuccessWithdraw(false); window.location.reload(); }}
+
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3 mb-5 text-xs text-gray-400">
+              Frais de retrait (5 %) :{' '}
+              <span className="font-bold text-gray-200">
+                {successWithdraw.fee.toLocaleString('fr-FR')} FCFA
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                setSuccessWithdraw(null);
+                fetchData();
+              }}
               className="w-full h-12 rounded-xl bg-white text-black font-bold active:scale-95 transition-all"
             >
               Retour au portefeuille
