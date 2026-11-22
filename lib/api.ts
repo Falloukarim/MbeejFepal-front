@@ -138,6 +138,8 @@ export interface Subscription {
   started_at: string;
   expires_at: string;
   next_billing_at: string;
+  has_load_balancing: boolean; 
+
 }
 
 export interface SubscriptionStatus {

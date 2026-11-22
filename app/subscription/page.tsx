@@ -27,9 +27,10 @@ import Layout from '@/components/layout/Layout';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-// ⚠️ TEST : baissé à 10 FCFA pour cohérence avec les prix test (200/300).
-// ⚠️ PROD : remettre à 3000.
-const LOAD_BALANCING_PRICE = 10;
+// ⚠️ Doit être aligné avec `LoadBalancingPrice` dans subscription_usecase.go.
+// Facturé une seule fois, obligatoire pour TOUS les plans.
+const LOAD_BALANCING_PRICE = 3000;
+
 const POLL_INTERVAL_MS = 3000;
 const POLL_MAX_ATTEMPTS = 20;
 
@@ -38,11 +39,6 @@ function SubscriptionContent() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-
-  // ⚠️ TEST : Load Balancing forcé à ON.
-  // ⚠️ PROD : remettre `useState(false)` et réactiver le toggle.
-  const [wantLoadBalancing, setWantLoadBalancing] = useState(true);
-
   const [handledSuccess, setHandledSuccess] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -125,6 +121,9 @@ function SubscriptionContent() {
   const isActive = !!status?.active;
   const blockNavigation = !isActive;
 
+  // ✅ LB déjà payé sur une souscription précédente → on ne le refacture pas.
+  const alreadyPaidLB = !!currentSub?.has_load_balancing;
+
   const plansToDisplay = useMemo(
     () =>
       currentSub?.plan?.level === 'level2'
@@ -162,7 +161,8 @@ function SubscriptionContent() {
     }
 
     try {
-      const res: any = await chooseSubscription(plan.id, wantLoadBalancing);
+      // Le backend ignore wantLoadBalancing (LB obligatoire), on envoie true par cohérence.
+      const res: any = await chooseSubscription(plan.id, true);
 
       const waveUrl: string | undefined = res.wave_url || res.paydunya_url;
 
@@ -218,7 +218,9 @@ function SubscriptionContent() {
   const sel = plansToDisplay.find((p) => p.id === selectedId) ?? null;
   const selMeta = sel ? meta(sel) : null;
   const basePrice = sel ? calculatePrice(sel) : 0;
-  const lbExtra = selMeta?.level1 && wantLoadBalancing ? LOAD_BALANCING_PRICE : 0;
+
+  // ✅ LB facturé uniquement si pas encore payé
+  const lbExtra = sel && !alreadyPaidLB ? LOAD_BALANCING_PRICE : 0;
   const totalButtonPrice = basePrice + lbExtra;
 
   const features = sel
@@ -536,8 +538,8 @@ function SubscriptionContent() {
                     </ul>
                   </section>
 
-                  {/* Option Load Balancing — OBLIGATOIRE pendant le test */}
-                  {selMeta.level1 && (
+                  {/* Option Load Balancing — OBLIGATOIRE, tous plans */}
+                  {sel && (
                     <section className="sub-enter rounded-[28px] bg-amber-500/5 border border-amber-500/30 px-5 py-4 flex items-center gap-3.5">
                       <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
                         <RefreshCw className="w-5 h-5" />
@@ -550,8 +552,9 @@ function SubscriptionContent() {
                           </span>
                         </p>
                         <p className="text-xs text-gray-400 leading-snug mt-0.5">
-                          +{LOAD_BALANCING_PRICE.toLocaleString('fr-FR')} FCFA facturés une seule
-                          fois (inclus dans votre souscription)
+                          {alreadyPaidLB
+                            ? 'Déjà payée sur votre précédente souscription — non refacturée.'
+                            : `+${LOAD_BALANCING_PRICE.toLocaleString('fr-FR')} FCFA facturés une seule fois`}
                         </p>
                       </div>
 
