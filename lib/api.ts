@@ -378,10 +378,15 @@ export const getSubscriptionStatus = async () => {
 };
 
 export const chooseSubscription = async (planId: number, wantLoadBalancing: boolean = false) => {
-  const response = await api.post<{ subscription: Subscription; invoice: any; paydunya_url: string }>(
-    '/api/subscription/choose',
-    { plan_id: planId, want_load_balancing: wantLoadBalancing }
-  );
+  const response = await api.post<{
+    subscription: Subscription;
+    invoice: any;
+    wave_url?: string;
+    paydunya_url?: string; // déprécié — gardé pour compat
+  }>('/api/subscription/choose', {
+    plan_id: planId,
+    want_load_balancing: wantLoadBalancing,
+  });
   return response.data;
 };
 export const upgradeToLevel2 = async () => {

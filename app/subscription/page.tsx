@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, Suspense } from 'react';
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { getSubscriptionPlans, chooseSubscription, upgradeToLevel2, SubscriptionPlan } from '@/lib/api';
@@ -28,6 +28,8 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const LOAD_BALANCING_PRICE = 3000;
+const POLL_INTERVAL_MS = 3000; // 3 s
+const POLL_MAX_ATTEMPTS = 20;  // 60 s total
 
 function SubscriptionContent() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -35,25 +37,77 @@ function SubscriptionContent() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [wantLoadBalancing, setWantLoadBalancing] = useState(false);
+  const [handledSuccess, setHandledSuccess] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const { status, refreshStatus } = useSubscription();
 
   const searchParams = useSearchParams();
   const isSuccess = searchParams.get('success') === 'true';
 
-  useEffect(() => {
-    if (isSuccess) {
-      toast.success('Abonnement activé avec succès !');
-      refreshStatus();
-      window.history.replaceState({}, '', '/subscription');
-    }
-  }, [isSuccess, refreshStatus]);
+  // ────────────────────────────────────────────────────────
+  // SUCCESS FLOW — polling jusqu'à activation par webhook
+  // ────────────────────────────────────────────────────────
 
+  // Effect 1 : démarre le polling si on revient de Wave et pas encore actif
+  useEffect(() => {
+    if (!isSuccess || handledSuccess) return;
+    if (status?.active) return; // effect 2 s'en charge
+
+    let attempts = 0;
+    pollingRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        await refreshStatus();
+      } catch {
+        // erreur réseau ponctuelle, on continue
+      }
+      if (attempts >= POLL_MAX_ATTEMPTS) {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+        toast.error(
+          "Le paiement est bien reçu. L'activation prend plus de temps que prévu — vérifiez dans quelques minutes.",
+          { duration: 8000 }
+        );
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess, handledSuccess]);
+
+  // Effect 2 : détecte l'activation, toast une seule fois, stoppe le polling
+  useEffect(() => {
+    if (!isSuccess || handledSuccess) return;
+    if (!status?.active) return;
+
+    setHandledSuccess(true);
+
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    toast.success('Abonnement activé avec succès !');
+    window.history.replaceState({}, '', '/subscription');
+  }, [isSuccess, status?.active, handledSuccess]);
+
+  // ────────────────────────────────────────────────────────
+  // Chargement des plans
+  // ────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchPlans = async () => {
       try {
         const data = await getSubscriptionPlans();
         setPlans(data);
-      } catch (error) {
+      } catch {
         toast.error('Erreur lors du chargement des plans');
       } finally {
         setLoading(false);
@@ -67,13 +121,14 @@ function SubscriptionContent() {
   const isActive = !!status?.active;
   const blockNavigation = !isActive;
 
-  // Un abonné Gold expiré ne voit que Gold
   const plansToDisplay = useMemo(
-    () => (currentSub?.plan?.level === 'level2' ? plans.filter((p) => p.level === 'level2') : plans),
+    () =>
+      currentSub?.plan?.level === 'level2'
+        ? plans.filter((p) => p.level === 'level2')
+        : plans,
     [plans, currentSub?.plan?.level]
   );
 
-  // Sélection par défaut : Premium, sinon le premier plan affiché
   useEffect(() => {
     if (!plansToDisplay.length) return;
     const stillValid = plansToDisplay.some((p) => p.id === selectedId);
@@ -83,15 +138,19 @@ function SubscriptionContent() {
     }
   }, [plansToDisplay, selectedId]);
 
+  // ────────────────────────────────────────────────────────
+  // Actions
+  // ────────────────────────────────────────────────────────
   const handleChoose = async (plan: SubscriptionPlan) => {
     setProcessingId(plan.id);
 
+    // Cas upgrade instantané (level1 → level2)
     if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
       try {
         await upgradeToLevel2();
         await refreshStatus();
         toast.success('Passage au Niveau Gold effectué !');
-      } catch (error) {
+      } catch {
         toast.error("Erreur lors de l'upgrade");
       } finally {
         setProcessingId(null);
@@ -99,12 +158,27 @@ function SubscriptionContent() {
       return;
     }
 
+    // Cas paiement via Wave
     try {
-      const res = await chooseSubscription(plan.id, wantLoadBalancing);
-      toast.success('Redirection vers le paiement...');
-      window.location.href = res.paydunya_url;
+      const res: any = await chooseSubscription(plan.id, wantLoadBalancing);
+
+      // ✅ Support des deux clés (compat ascendante)
+      const waveUrl: string | undefined = res.wave_url || res.paydunya_url;
+
+      if (!waveUrl) {
+        throw new Error("L'URL de paiement n'a pas été retournée par le serveur");
+      }
+
+      toast.success('Redirection vers Wave...', { duration: 2000 });
+      window.location.href = waveUrl;
+      // processingId reste à plan.id car on quitte la page
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Erreur lors de la création de l'abonnement");
+      // Extraction propre du message backend ({ error, message } ou string)
+      const data = error?.response?.data;
+      const backendMsg =
+        typeof data === 'string' ? data : data?.message || data?.error || null;
+
+      toast.error(backendMsg || error?.message || "Erreur lors de la création de l'abonnement");
       setProcessingId(null);
     }
   };
@@ -118,13 +192,13 @@ function SubscriptionContent() {
     return plan.base_price + extra * plan.extra_router_price;
   };
 
-if (loading) {
-  return (
-    <Layout>
-      <LoadingSpinner message="Chargement du portefeuille..." />
-    </Layout>
-  );
-}
+  if (loading) {
+    return (
+      <Layout>
+        <LoadingSpinner message="Chargement des forfaits..." />
+      </Layout>
+    );
+  }
 
   const busy = processingId !== null;
   const expiresLabel = currentSub?.expires_at
@@ -136,11 +210,12 @@ if (loading) {
     return {
       level1,
       name: level1 ? 'Premium' : 'Gold',
-      desc: level1 ? 'Pour démarrer (1 routeur)' : 'Pour les grands réseaux (dès 5 routeurs)',
+      desc: level1
+        ? 'Pour démarrer (1 routeur)'
+        : 'Pour les grands réseaux (dès 5 routeurs)',
     };
   };
 
-  // Plan sélectionné (parcours non actif)
   const sel = plansToDisplay.find((p) => p.id === selectedId) ?? null;
   const selMeta = sel ? meta(sel) : null;
   const basePrice = sel ? calculatePrice(sel) : 0;
@@ -158,7 +233,7 @@ if (loading) {
           ? [
               {
                 icon: PlusCircle,
-                title: `${sel.extra_router_price.toLocaleString()} FCFA / routeur supp.`,
+                title: `${sel.extra_router_price.toLocaleString('fr-FR')} FCFA / routeur supp.`,
                 sub: selMeta?.level1 ? 'Maximum 5 routeurs' : 'Pour chaque routeur supplémentaire',
               },
             ]
@@ -192,10 +267,14 @@ if (loading) {
             isActive ? 'pb-10' : 'pb-28'
           }`}
         >
-          {/* Titre façon "large title" iOS */}
+          {/* Titre */}
           <header className="mb-5">
-            <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">Abonnement</h1>
-            <p className="text-sm text-gray-400 mt-1">Gérez votre plan et consultez votre historique</p>
+            <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">
+              Abonnement
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Gérez votre plan et consultez votre historique
+            </p>
           </header>
 
           {/* ───────── CAS 1 : ACTIF ───────── */}
@@ -219,27 +298,39 @@ if (loading) {
                   </span>
                 </div>
 
-                <h2 className="relative mt-5 text-2xl font-extrabold text-white">{isGold ? 'Gold' : 'Premium'}</h2>
-                <p className="relative text-sm text-gray-400">Votre abonnement est actif et fonctionnel.</p>
+                <h2 className="relative mt-5 text-2xl font-extrabold text-white">
+                  {isGold ? 'Gold' : 'Premium'}
+                </h2>
+                <p className="relative text-sm text-gray-400">
+                  Votre abonnement est actif et fonctionnel.
+                </p>
 
                 <div className="relative mt-5 flex items-center justify-between rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">Prochain paiement</p>
-                    <p className="text-lg font-bold text-amber-400 mt-0.5">{expiresLabel ?? 'N/A'}</p>
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+                      Prochain paiement
+                    </p>
+                    <p className="text-lg font-bold text-amber-400 mt-0.5">
+                      {expiresLabel ?? 'N/A'}
+                    </p>
                   </div>
                   <Calendar className="w-6 h-6 text-amber-500" />
                 </div>
 
                 <div className="relative mt-3 grid grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">Prix mensuel</p>
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+                      Prix mensuel
+                    </p>
                     <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
-                      {currentSub.monthly_amount?.toLocaleString() || 0}{' '}
+                      {currentSub.monthly_amount?.toLocaleString('fr-FR') || 0}{' '}
                       <span className="text-xs font-medium text-gray-400">FCFA</span>
                     </p>
                   </div>
                   <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">Routeurs</p>
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+                      Routeurs
+                    </p>
                     <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
                       {currentSub.router_count}{' '}
                       <span className="text-xs font-medium text-gray-400">
@@ -252,7 +343,9 @@ if (loading) {
 
               {!isGold && (
                 <section className="sub-enter rounded-[28px] border border-amber-500/20 bg-gradient-to-r from-amber-900/40 to-black p-5">
-                  <h3 className="text-base font-bold text-white mb-1">Passez à la vitesse supérieure</h3>
+                  <h3 className="text-base font-bold text-white mb-1">
+                    Passez à la vitesse supérieure
+                  </h3>
                   <p className="text-sm text-gray-400 mb-4">
                     Débloquez plus de routeurs et les fonctionnalités avancées avec Gold.
                   </p>
@@ -290,8 +383,9 @@ if (loading) {
                     <div>
                       <p className="text-sm font-bold text-blue-400 mb-1">Paiement en attente</p>
                       <p className="text-sm text-blue-200/80">
-                        Votre commande pour le plan {currentSub.plan?.name} est en attente de validation. Si vous
-                        n'avez pas finalisé le paiement, veuillez le refaire ci-dessous.
+                        Votre commande pour le plan {currentSub.plan?.name} est en attente de
+                        validation. Si vous n&apos;avez pas finalisé le paiement, veuillez le refaire
+                        ci-dessous.
                       </p>
                     </div>
                   </div>
@@ -299,10 +393,12 @@ if (loading) {
                   <div className="sub-enter bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-5 flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold text-red-400 mb-1">Votre abonnement a expiré</p>
+                      <p className="text-sm font-bold text-red-400 mb-1">
+                        Votre abonnement a expiré
+                      </p>
                       <p className="text-sm text-red-200/80">
-                        Votre plan {currentSub.plan?.name || 'précédent'} a expiré le {expiresLabel ?? 'récemment'}.
-                        Veuillez le renouveler ci-dessous.
+                        Votre plan {currentSub.plan?.name || 'précédent'} a expiré le{' '}
+                        {expiresLabel ?? 'récemment'}. Veuillez le renouveler ci-dessous.
                       </p>
                     </div>
                   </div>
@@ -311,7 +407,7 @@ if (loading) {
                 <div className="sub-enter bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-5 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-200">
-                    Vous n'avez pas d'abonnement actif. Choisissez un plan ci-dessous.
+                    Vous n&apos;avez pas d&apos;abonnement actif. Choisissez un plan ci-dessous.
                   </p>
                 </div>
               )}
@@ -321,7 +417,9 @@ if (loading) {
                 <div
                   role="tablist"
                   className="grid bg-white/5 border border-white/10 rounded-2xl p-1 mb-5"
-                  style={{ gridTemplateColumns: `repeat(${plansToDisplay.length}, minmax(0, 1fr))` }}
+                  style={{
+                    gridTemplateColumns: `repeat(${plansToDisplay.length}, minmax(0, 1fr))`,
+                  }}
                 >
                   {plansToDisplay.map((plan) => {
                     const m = meta(plan);
@@ -369,7 +467,11 @@ if (loading) {
                             : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
                         }`}
                       >
-                        {selMeta.level1 ? <Shield className="w-7 h-7" /> : <Zap className="w-7 h-7" />}
+                        {selMeta.level1 ? (
+                          <Shield className="w-7 h-7" />
+                        ) : (
+                          <Zap className="w-7 h-7" />
+                        )}
                       </div>
                       {!selMeta.level1 && (
                         <span className="bg-amber-500 text-black text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full">
@@ -378,32 +480,38 @@ if (loading) {
                       )}
                     </div>
 
-                    <h2 className="relative mt-5 text-2xl font-extrabold text-white">{selMeta.name}</h2>
+                    <h2 className="relative mt-5 text-2xl font-extrabold text-white">
+                      {selMeta.name}
+                    </h2>
                     <p className="relative text-sm text-gray-400">{selMeta.desc}</p>
 
                     <div className="relative mt-5 flex items-end gap-2">
                       <span className="text-5xl font-black tracking-tight text-amber-400 tabular-nums">
-                        {basePrice.toLocaleString()}
+                        {basePrice.toLocaleString('fr-FR')}
                       </span>
-                      <span className="pb-1.5 text-sm font-medium text-gray-400">FCFA / mois</span>
+                      <span className="pb-1.5 text-sm font-medium text-gray-400">
+                        FCFA / mois
+                      </span>
                     </div>
 
                     {basePrice > sel.base_price && (
                       <p className="relative mt-2 text-xs text-gray-400">
-                        Dont {(basePrice - sel.base_price).toLocaleString()} FCFA pour vos routeurs supplémentaires
+                        Dont {(basePrice - sel.base_price).toLocaleString('fr-FR')} FCFA pour vos
+                        routeurs supplémentaires
                       </p>
                     )}
                     {lbExtra > 0 && (
                       <p className="relative mt-1 text-xs text-amber-300">
-                        + {lbExtra.toLocaleString()} FCFA (Load Balancing, facturé une seule fois)
+                        + {lbExtra.toLocaleString('fr-FR')} FCFA (Load Balancing, facturé une seule
+                        fois)
                       </p>
                     )}
                   </section>
 
-                  {/* Liste groupée façon réglages iOS */}
+                  {/* Liste des features */}
                   <section className="rounded-[28px] bg-white/5 border border-white/10 overflow-hidden">
                     <h3 className="px-5 pt-4 pb-2 text-[11px] font-bold uppercase tracking-widest text-gray-500">
-                      Inclus dans l’offre
+                      Inclus dans l&apos;offre
                     </h3>
                     <ul className="divide-y divide-white/5">
                       {features.map((f, i) => {
@@ -418,7 +526,9 @@ if (loading) {
                               <Icon className="w-5 h-5" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-white leading-snug">{f.title}</p>
+                              <p className="text-sm font-semibold text-white leading-snug">
+                                {f.title}
+                              </p>
                               <p className="text-xs text-gray-400 leading-snug mt-0.5">{f.sub}</p>
                             </div>
                             <Check className="w-4 h-4 text-green-500 shrink-0" />
@@ -428,16 +538,19 @@ if (loading) {
                     </ul>
                   </section>
 
-                  {/* Option Load Balancing (Premium) : interrupteur façon iOS */}
+                  {/* Option Load Balancing */}
                   {selMeta.level1 && (
                     <section className="sub-enter rounded-[28px] bg-white/5 border border-white/10 px-5 py-4 flex items-center gap-3.5">
                       <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
                         <RefreshCw className="w-5 h-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white leading-snug">Option Load Balancing</p>
+                        <p className="text-sm font-semibold text-white leading-snug">
+                          Option Load Balancing
+                        </p>
                         <p className="text-xs text-gray-400 leading-snug mt-0.5">
-                          +{LOAD_BALANCING_PRICE.toLocaleString()} FCFA facturés une seule fois
+                          +{LOAD_BALANCING_PRICE.toLocaleString('fr-FR')} FCFA facturés une seule
+                          fois
                         </p>
                       </div>
                       <button
@@ -465,11 +578,11 @@ if (loading) {
           )}
 
           <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 mt-6">
-            <Lock className="w-3 h-3" /> Paiement sécurisé via PayDunya
+            <Lock className="w-3 h-3" /> Paiement sécurisé via Wave
           </p>
         </div>
 
-        {/* Barre d'action collante, façon bottom bar d'appli */}
+        {/* Bottom bar sticky */}
         {!isActive && sel && selMeta && (
           <div className="pointer-events-auto sticky bottom-0 z-30 -mt-24 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 bg-gradient-to-t from-black via-black/90 to-transparent">
             <div className="max-w-md mx-auto">
@@ -480,7 +593,7 @@ if (loading) {
                   selMeta.level1
                     ? 'bg-white text-black'
                     : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-amber-600/30'
-                } ${busy && processingId !== sel.id ? 'opacity-50' : ''}`}
+                }`}
               >
                 {processingId === sel.id ? (
                   <>
@@ -489,7 +602,8 @@ if (loading) {
                   </>
                 ) : (
                   <>
-                    {currentSub ? 'Renouveler' : 'Souscrire à'} {selMeta.name} · {totalButtonPrice.toLocaleString()} FCFA
+                    {currentSub ? 'Renouveler' : 'Souscrire à'} {selMeta.name} ·{' '}
+                    {totalButtonPrice.toLocaleString('fr-FR')} FCFA
                     <ArrowRight className="w-5 h-5" />
                   </>
                 )}
