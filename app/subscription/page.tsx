@@ -119,8 +119,8 @@ function SubscriptionContent() {
   const currentSub = status?.subscription;
   const isGold = currentSub?.plan?.level === 'level2';
   const isActive = !!status?.active;
-  const blockNavigation = !isActive;
-
+  const isExempt = !!status?.is_exempt;
+const blockNavigation = !isActive && !isExempt;
   // ✅ LB déjà payé sur une souscription précédente → on ne le refacture pas.
   const alreadyPaidLB = !!currentSub?.has_load_balancing;
 
@@ -276,9 +276,56 @@ function SubscriptionContent() {
               Gérez votre plan et consultez votre historique
             </p>
           </header>
+          {/* ───────── CAS 0 : ADMIN EXEMPTÉ (sans abonnement) ───────── */}
+{isExempt && !currentSub && (
+  <div className="sub-enter space-y-4">
+    <section className="relative overflow-hidden rounded-[28px] p-6 border border-amber-500/40 bg-gradient-to-br from-amber-500/20 via-gray-900 to-black">
+      <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+
+      <div className="relative flex items-start justify-between">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center border bg-amber-500/15 border-amber-500/30 text-amber-400">
+          <Crown className="w-7 h-7" />
+        </div>
+        <span className="bg-amber-500 text-black text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full">
+          ADMIN
+        </span>
+      </div>
+
+      <h2 className="relative mt-5 text-2xl font-extrabold text-white">
+        Compte administrateur
+      </h2>
+      <p className="relative text-sm text-gray-400 mt-1">
+        Vous êtes le propriétaire de la plateforme. Aucun abonnement n&apos;est requis.
+      </p>
+
+      <div className="relative mt-5 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+            Routeurs
+          </p>
+          <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
+            {status?.router_count ?? 0}
+            <span className="text-xs font-medium text-gray-400 ml-1">/ ∞</span>
+          </p>
+        </div>
+        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+          <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+            Coût mensuel
+          </p>
+          <p className="text-lg font-bold text-green-400 mt-0.5">
+            0 <span className="text-xs font-medium text-gray-400">FCFA</span>
+          </p>
+        </div>
+      </div>
+
+      <p className="relative mt-4 text-xs text-gray-500 text-center">
+      </p>
+    </section>
+  </div>
+)}
 
           {/* ───────── CAS 1 : ACTIF ───────── */}
-          {isActive && currentSub && (
+          {currentSub && isActive && (
             <div className="space-y-4">
               <section className="sub-enter relative overflow-hidden rounded-[28px] p-6 border border-amber-500/30 bg-gradient-to-br from-amber-500/20 via-gray-900 to-black">
                 <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
@@ -374,7 +421,7 @@ function SubscriptionContent() {
           )}
 
           {/* ───────── CAS 2 : EXPIRÉ, EN ATTENTE OU NOUVEAU ───────── */}
-          {(!isActive || !currentSub) && (
+          {!isExempt && (!isActive || !currentSub) && (
             <>
               {currentSub ? (
                 currentSub.status === 'pending' ? (
@@ -582,7 +629,7 @@ function SubscriptionContent() {
         </div>
 
         {/* Bottom bar sticky */}
-        {!isActive && sel && selMeta && (
+        {!isExempt && !isActive && sel && selMeta && (
           <div className="pointer-events-auto sticky bottom-0 z-30 -mt-24 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 bg-gradient-to-t from-black via-black/90 to-transparent">
             <div className="max-w-md mx-auto">
               <button

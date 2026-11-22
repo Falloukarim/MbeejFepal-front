@@ -144,6 +144,7 @@ export interface Subscription {
 
 export interface SubscriptionStatus {
   active: boolean;
+  is_exempt?: boolean; // ✅ NOUVEAU — admin exempté
   subscription?: Subscription;
   router_count: number;
   router_limit: number;
