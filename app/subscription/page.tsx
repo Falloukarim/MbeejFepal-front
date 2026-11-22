@@ -27,16 +27,22 @@ import Layout from '@/components/layout/Layout';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const LOAD_BALANCING_PRICE = 3000;
-const POLL_INTERVAL_MS = 3000; // 3 s
-const POLL_MAX_ATTEMPTS = 20;  // 60 s total
+// ⚠️ TEST : baissé à 10 FCFA pour cohérence avec les prix test (200/300).
+// ⚠️ PROD : remettre à 3000.
+const LOAD_BALANCING_PRICE = 10;
+const POLL_INTERVAL_MS = 3000;
+const POLL_MAX_ATTEMPTS = 20;
 
 function SubscriptionContent() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [wantLoadBalancing, setWantLoadBalancing] = useState(false);
+
+  // ⚠️ TEST : Load Balancing forcé à ON.
+  // ⚠️ PROD : remettre `useState(false)` et réactiver le toggle.
+  const [wantLoadBalancing, setWantLoadBalancing] = useState(true);
+
   const [handledSuccess, setHandledSuccess] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -49,10 +55,9 @@ function SubscriptionContent() {
   // SUCCESS FLOW — polling jusqu'à activation par webhook
   // ────────────────────────────────────────────────────────
 
-  // Effect 1 : démarre le polling si on revient de Wave et pas encore actif
   useEffect(() => {
     if (!isSuccess || handledSuccess) return;
-    if (status?.active) return; // effect 2 s'en charge
+    if (status?.active) return;
 
     let attempts = 0;
     pollingRef.current = setInterval(async () => {
@@ -83,7 +88,6 @@ function SubscriptionContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuccess, handledSuccess]);
 
-  // Effect 2 : détecte l'activation, toast une seule fois, stoppe le polling
   useEffect(() => {
     if (!isSuccess || handledSuccess) return;
     if (!status?.active) return;
@@ -144,7 +148,6 @@ function SubscriptionContent() {
   const handleChoose = async (plan: SubscriptionPlan) => {
     setProcessingId(plan.id);
 
-    // Cas upgrade instantané (level1 → level2)
     if (status?.active && status.subscription?.plan.level === 'level1' && plan.level === 'level2') {
       try {
         await upgradeToLevel2();
@@ -158,11 +161,9 @@ function SubscriptionContent() {
       return;
     }
 
-    // Cas paiement via Wave
     try {
       const res: any = await chooseSubscription(plan.id, wantLoadBalancing);
 
-      // ✅ Support des deux clés (compat ascendante)
       const waveUrl: string | undefined = res.wave_url || res.paydunya_url;
 
       if (!waveUrl) {
@@ -171,9 +172,7 @@ function SubscriptionContent() {
 
       toast.success('Redirection vers Wave...', { duration: 2000 });
       window.location.href = waveUrl;
-      // processingId reste à plan.id car on quitte la page
     } catch (error: any) {
-      // Extraction propre du message backend ({ error, message } ou string)
       const data = error?.response?.data;
       const backendMsg =
         typeof data === 'string' ? data : data?.message || data?.error || null;
@@ -267,7 +266,6 @@ function SubscriptionContent() {
             isActive ? 'pb-10' : 'pb-28'
           }`}
         >
-          {/* Titre */}
           <header className="mb-5">
             <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-white">
               Abonnement
@@ -538,37 +536,35 @@ function SubscriptionContent() {
                     </ul>
                   </section>
 
-                  {/* Option Load Balancing */}
+                  {/* Option Load Balancing — OBLIGATOIRE pendant le test */}
                   {selMeta.level1 && (
-                    <section className="sub-enter rounded-[28px] bg-white/5 border border-white/10 px-5 py-4 flex items-center gap-3.5">
+                    <section className="sub-enter rounded-[28px] bg-amber-500/5 border border-amber-500/30 px-5 py-4 flex items-center gap-3.5">
                       <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
                         <RefreshCw className="w-5 h-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white leading-snug">
+                        <p className="text-sm font-semibold text-white leading-snug flex items-center gap-2">
                           Option Load Balancing
+                          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-black font-extrabold">
+                            Requis
+                          </span>
                         </p>
                         <p className="text-xs text-gray-400 leading-snug mt-0.5">
                           +{LOAD_BALANCING_PRICE.toLocaleString('fr-FR')} FCFA facturés une seule
-                          fois
+                          fois (inclus dans votre souscription)
                         </p>
                       </div>
+
+                      {/* Toggle verrouillé ON */}
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={wantLoadBalancing}
-                        aria-label="Ajouter l'option Load Balancing"
-                        disabled={busy}
-                        onClick={() => setWantLoadBalancing((v) => !v)}
-                        className={`relative w-12 h-7 shrink-0 rounded-full transition-colors duration-200 active:scale-95 ${
-                          wantLoadBalancing ? 'bg-amber-500' : 'bg-white/15'
-                        }`}
+                        aria-checked={true}
+                        aria-label="Option Load Balancing obligatoire"
+                        disabled
+                        className="relative w-12 h-7 shrink-0 rounded-full bg-amber-500 cursor-not-allowed"
                       >
-                        <span
-                          className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200 ${
-                            wantLoadBalancing ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
+                        <span className="absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md translate-x-5" />
                       </button>
                     </section>
                   )}
