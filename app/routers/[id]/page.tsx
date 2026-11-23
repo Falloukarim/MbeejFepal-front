@@ -10,7 +10,8 @@ import { useForm } from 'react-hook-form';
 import {
   Save, ShieldAlert, Copy, Check, Upload, ImageIcon, X, ArrowLeft, Wifi, Clock, Package,
   Palette, Terminal, Plus, Settings2, Smartphone, Monitor, RotateCcw, Gauge, Activity,
-  Infinity as InfinityIcon, Loader2, // ✅ Ajout de Loader2 pour le spinner
+  Infinity as InfinityIcon, Loader2,
+  Ticket, // ✅ Ajout de Loader2 pour le spinner
 } from 'lucide-react';
 import { QuotaWidget } from '@/components/routers/QuotaWidget';
 
