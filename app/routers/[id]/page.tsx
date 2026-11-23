@@ -450,6 +450,12 @@ export default function RouterDetailPage() {
         <Link href="/routers" className="relative z-10 flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-amber-400 transition-all hover:border-[#d97706] hover:bg-[#d97706] hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Retour
         </Link>
+        <Link
+  href={`/routers/${routerId}/tickets`}
+  className="relative z-10 flex items-center gap-2 rounded-xl border border-white/10 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-400 transition-all hover:bg-amber-500 hover:text-white"
+>
+  <Ticket className="h-4 w-4" /> Tickets
+</Link>
       </div>
 
       {/* ============ BANDE DE STATS ============ */}
