@@ -28,7 +28,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 // ⚠️ Doit être aligné avec `LoadBalancingPrice` dans subscription_usecase.go.
-// Facturé une seule fois, obligatoire pour TOUS les plans.
+// Facturé une seule fois, optionnel pour TOUS les plans (Premium et Gold).
 const LOAD_BALANCING_PRICE = 3000;
 
 const POLL_INTERVAL_MS = 3000;
@@ -40,6 +40,7 @@ function SubscriptionContent() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [handledSuccess, setHandledSuccess] = useState(false);
+  const [wantLoadBalancing, setWantLoadBalancing] = useState(false); // ✅ Optionnel (défaut OFF)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { status, refreshStatus } = useSubscription();
@@ -120,8 +121,9 @@ function SubscriptionContent() {
   const isGold = currentSub?.plan?.level === 'level2';
   const isActive = !!status?.active;
   const isExempt = !!status?.is_exempt;
-const blockNavigation = !isActive && !isExempt;
-  // ✅ LB déjà payé sur une souscription précédente → on ne le refacture pas.
+  const blockNavigation = !isActive && !isExempt;
+
+  // ✅ LB déjà payé sur une souscription précédente → on ne le refacture pas
   const alreadyPaidLB = !!currentSub?.has_load_balancing;
 
   const plansToDisplay = useMemo(
@@ -161,8 +163,8 @@ const blockNavigation = !isActive && !isExempt;
     }
 
     try {
-      // Le backend ignore wantLoadBalancing (LB obligatoire), on envoie true par cohérence.
-      const res: any = await chooseSubscription(plan.id, true);
+      // ✅ On envoie le vrai choix du user (plus de `true` forcé)
+      const res: any = await chooseSubscription(plan.id, wantLoadBalancing);
 
       const waveUrl: string | undefined = res.wave_url || res.paydunya_url;
 
@@ -219,9 +221,13 @@ const blockNavigation = !isActive && !isExempt;
   const selMeta = sel ? meta(sel) : null;
   const basePrice = sel ? calculatePrice(sel) : 0;
 
-  // ✅ LB facturé uniquement si pas encore payé
-  const lbExtra = sel && !alreadyPaidLB ? LOAD_BALANCING_PRICE : 0;
+  // ✅ LB facturé uniquement si coché ET pas encore payé
+  const lbExtra =
+    sel && wantLoadBalancing && !alreadyPaidLB ? LOAD_BALANCING_PRICE : 0;
   const totalButtonPrice = basePrice + lbExtra;
+
+  // L'état affiché du toggle : si déjà payé → toujours ON, sinon l'état choisi par l'user
+  const lbToggleOn = alreadyPaidLB || wantLoadBalancing;
 
   const features = sel
     ? [
@@ -235,7 +241,9 @@ const blockNavigation = !isActive && !isExempt;
               {
                 icon: PlusCircle,
                 title: `${sel.extra_router_price.toLocaleString('fr-FR')} FCFA / routeur supp.`,
-                sub: selMeta?.level1 ? 'Maximum 5 routeurs' : 'Pour chaque routeur supplémentaire',
+                sub: selMeta?.level1
+                  ? 'Maximum 5 routeurs'
+                  : 'Pour chaque routeur supplémentaire',
               },
             ]
           : []),
@@ -276,53 +284,51 @@ const blockNavigation = !isActive && !isExempt;
               Gérez votre plan et consultez votre historique
             </p>
           </header>
+
           {/* ───────── CAS 0 : ADMIN EXEMPTÉ (sans abonnement) ───────── */}
-{isExempt && !currentSub && (
-  <div className="sub-enter space-y-4">
-    <section className="relative overflow-hidden rounded-[28px] p-6 border border-amber-500/40 bg-gradient-to-br from-amber-500/20 via-gray-900 to-black">
-      <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+          {isExempt && !currentSub && (
+            <div className="sub-enter space-y-4">
+              <section className="relative overflow-hidden rounded-[28px] p-6 border border-amber-500/40 bg-gradient-to-br from-amber-500/20 via-gray-900 to-black">
+                <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
 
-      <div className="relative flex items-start justify-between">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center border bg-amber-500/15 border-amber-500/30 text-amber-400">
-          <Crown className="w-7 h-7" />
-        </div>
-        <span className="bg-amber-500 text-black text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full">
-          ADMIN
-        </span>
-      </div>
+                <div className="relative flex items-start justify-between">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center border bg-amber-500/15 border-amber-500/30 text-amber-400">
+                    <Crown className="w-7 h-7" />
+                  </div>
+                  <span className="bg-amber-500 text-black text-[10px] font-extrabold tracking-wider px-2.5 py-1 rounded-full">
+                    ADMIN
+                  </span>
+                </div>
 
-      <h2 className="relative mt-5 text-2xl font-extrabold text-white">
-        Compte administrateur
-      </h2>
-      <p className="relative text-sm text-gray-400 mt-1">
-        Vous êtes le propriétaire de la plateforme. Aucun abonnement n&apos;est requis.
-      </p>
+                <h2 className="relative mt-5 text-2xl font-extrabold text-white">
+                  Compte administrateur
+                </h2>
+                <p className="relative text-sm text-gray-400 mt-1">
+                  Vous êtes le propriétaire de la plateforme. Aucun abonnement n&apos;est requis.
+                </p>
 
-      <div className="relative mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
-            Routeurs
-          </p>
-          <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
-            {status?.router_count ?? 0}
-            <span className="text-xs font-medium text-gray-400 ml-1">/ ∞</span>
-          </p>
-        </div>
-        <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-          <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
-            Coût mensuel
-          </p>
-          <p className="text-lg font-bold text-green-400 mt-0.5">
-            0 <span className="text-xs font-medium text-gray-400">FCFA</span>
-          </p>
-        </div>
-      </div>
-
-      <p className="relative mt-4 text-xs text-gray-500 text-center">
-      </p>
-    </section>
-  </div>
-)}
+                <div className="relative mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+                      Routeurs
+                    </p>
+                    <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
+                      {status?.router_count ?? 0}
+                      <span className="text-xs font-medium text-gray-400 ml-1">/ ∞</span>
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+                    <p className="text-[11px] uppercase tracking-widest text-gray-500 font-bold">
+                      Coût mensuel
+                    </p>
+                    <p className="text-lg font-bold text-green-400 mt-0.5">
+                      0 <span className="text-xs font-medium text-gray-400">FCFA</span>
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
 
           {/* ───────── CAS 1 : ACTIF ───────── */}
           {currentSub && isActive && (
@@ -585,18 +591,15 @@ const blockNavigation = !isActive && !isExempt;
                     </ul>
                   </section>
 
-                  {/* Option Load Balancing — OBLIGATOIRE, tous plans */}
+                  {/* Option Load Balancing — optionnelle, tous plans */}
                   {sel && (
-                    <section className="sub-enter rounded-[28px] bg-amber-500/5 border border-amber-500/30 px-5 py-4 flex items-center gap-3.5">
+                    <section className="sub-enter rounded-[28px] bg-white/5 border border-white/10 px-5 py-4 flex items-center gap-3.5">
                       <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
                         <RefreshCw className="w-5 h-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white leading-snug flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white leading-snug">
                           Option Load Balancing
-                          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-black font-extrabold">
-                            Requis
-                          </span>
                         </p>
                         <p className="text-xs text-gray-400 leading-snug mt-0.5">
                           {alreadyPaidLB
@@ -605,16 +608,26 @@ const blockNavigation = !isActive && !isExempt;
                         </p>
                       </div>
 
-                      {/* Toggle verrouillé ON */}
+                      {/* Toggle interactif (verrouillé ON si déjà payé) */}
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={true}
-                        aria-label="Option Load Balancing obligatoire"
-                        disabled
-                        className="relative w-12 h-7 shrink-0 rounded-full bg-amber-500 cursor-not-allowed"
+                        aria-checked={lbToggleOn}
+                        aria-label="Ajouter l'option Load Balancing"
+                        disabled={busy || alreadyPaidLB}
+                        onClick={() => {
+                          if (alreadyPaidLB) return;
+                          setWantLoadBalancing((v) => !v);
+                        }}
+                        className={`relative w-12 h-7 shrink-0 rounded-full transition-colors duration-200 active:scale-95 ${
+                          lbToggleOn ? 'bg-amber-500' : 'bg-white/15'
+                        } ${alreadyPaidLB ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
                       >
-                        <span className="absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md translate-x-5" />
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                            lbToggleOn ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
                       </button>
                     </section>
                   )}
