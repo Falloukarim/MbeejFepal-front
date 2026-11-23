@@ -74,20 +74,20 @@ export default function SessionsPage() {
         });
         setRouters(routerMap);
 
-        const adaptedSessions: Session[] = (sessionsData as any[])
+                 const adaptedSessions: Session[] = (Array.isArray(sessionsData) ? sessionsData : [])
           .map((item: any) => ({
-            id: item.ID || item.id,
-            zone_code: item.ZoneCode || null,
-            users_id: item.UsersID || item.UserID,
-            router_id: item.RouterID,
-            hotspot_id: item.HotspotID,
-            mac_address: item.MacAddress,
-            ip_address: item.IpAddress || null,
-            state: item.State || 'CREATED',
-            created_at: item.CreatedAt,
-            expires_at: item.ExpiresAt,
+            id: item.id ?? item.ID,
+            zone_code: null, // ⚠️ pas dans le DTO — null fixe
+            users_id: item.user_id ?? item.UsersID ?? item.UserID ?? '',
+            router_id: item.router_id ?? item.RouterID,
+            hotspot_id: item.hotspot_id ?? item.HotspotID,
+            mac_address: item.mac_address ?? item.MacAddress ?? '',
+            ip_address: null, // ⚠️ pas dans le DTO — null fixe
+            state: item.state ?? item.State ?? 'CREATED',
+            created_at: item.created_at ?? item.CreatedAt,
+            expires_at: item.expires_at ?? item.ExpiresAt,
           }))
-          .filter((session) => session.id);
+          .filter((session) => session.id != null);
 
         setSessions(adaptedSessions || []);
 
