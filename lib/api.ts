@@ -510,9 +510,6 @@ export const deletePPPUser = async (userId: number) => {
   await api.delete(`/api/pppoe/users/${userId}`);
 };
 
-// ==========================================
-// TICKETS MANUELS (générés par le gestionnaire)
-// ==========================================
 export interface ManualTicketResult {
   id: number;
   short_code: string;
@@ -527,14 +524,34 @@ export interface ManualTicketResult {
 export const generateManualTicket = async (
   routerId: number,
   profileId: number,
-  whatsappNumber?: string
+  whatsappNumber?: string,
+  durationMinutes?: number,
 ): Promise<ManualTicketResult> => {
   const response = await api.post<ManualTicketResult>(
     `/api/routers/${routerId}/tickets`,
     {
       profile_id: profileId,
       whatsapp_number: whatsappNumber || '',
+      duration_minutes: durationMinutes || 0,
     }
   );
+  return response.data;
+};
+
+export interface TicketSummary {
+  id: number;
+  short_code: string;
+  profile_id: number;
+  profile_name: string;
+  max_devices: number;
+  duration_minutes: number;
+  created_at: string;
+  expires_at: string;
+  is_active: boolean;
+  is_used: boolean;
+}
+
+export const listRouterTickets = async (routerId: number): Promise<TicketSummary[]> => {
+  const response = await api.get<TicketSummary[]>(`/api/routers/${routerId}/tickets`);
   return response.data;
 };
