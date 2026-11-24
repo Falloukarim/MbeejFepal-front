@@ -6,11 +6,15 @@ import { getRouters, deleteRouter, type Router } from '@/lib/api';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import {
-  Wifi, WifiOff, Plus, Copy, Check, Edit, Trash2, Tag, Search, Clock, Terminal, Activity,
+  Wifi, WifiOff, Plus, Copy, Check, Edit, Trash2, Tag, Search, Clock, Terminal, Activity, Crown,
 } from 'lucide-react';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useSubscription } from '@/app/context/SubscriptionContext'; // ✅ NOUVEAU
+
+// ⚠️ Doit être aligné avec `PremiumMaxRouters` dans subscription_usecase.go
+// et PREMIUM_MAX_ROUTERS dans app/subscription/page.tsx.
+const PREMIUM_MAX_ROUTERS = 3;
 
 type Filter = 'all' | 'online' | 'offline' | 'never_connected';
 
@@ -28,6 +32,12 @@ export default function RoutersPage() {
   // ✅ NOUVEAU : vérifier si l'utilisateur peut écrire
   const { status: subscriptionStatus } = useSubscription();
   const canWrite = subscriptionStatus?.active ?? false;
+
+  // ✅ Premium (level1, hors admin) ayant atteint le plafond de routeurs → CTA Gold
+  const isPremiumPlan = subscriptionStatus?.subscription?.plan?.level === 'level1';
+  const isExempt = !!subscriptionStatus?.is_exempt;
+  const atPremiumLimit =
+    canWrite && !isExempt && isPremiumPlan && routers.length >= PREMIUM_MAX_ROUTERS;
 
   // ✅ Helper : bloque l'action si abonnement inactif
   const guardWrite = (e: React.MouseEvent, action = 'effectuer cette action') => {
@@ -245,19 +255,45 @@ export default function RoutersPage() {
               </div>
             </section>
 
-            {/* ✅ Bouton principal : désactivé si abonnement inactif */}
-            <Link
-              href={canWrite ? '/routers/new' : '#'}
-              onClick={(e) => guardWrite(e, 'créer un routeur')}
-              className={`w-full h-14 mb-4 flex items-center justify-center gap-2 rounded-2xl text-base font-bold shadow-xl transition-all active:scale-[0.98] ${
-                canWrite
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-amber-600/25'
-                  : 'bg-white/10 text-gray-500 cursor-not-allowed'
-              }`}
-              title={!canWrite ? 'Renouvelez votre abonnement' : ''}
-            >
-              <Plus className="w-5 h-5" /> Nouveau routeur
-            </Link>
+            {/* ✅ Plafond Premium atteint : message clair AVANT que l'utilisateur essaie de créer */}
+            {atPremiumLimit && (
+              <div className="rt-rise mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4 flex items-start gap-3">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0 text-sm text-amber-100/90 leading-snug">
+                  <p className="font-bold text-white mb-0.5">Limite Premium atteinte</p>
+                  Vous avez atteint la limite de {PREMIUM_MAX_ROUTERS} routeurs du plan Premium.{' '}
+                  <Link href="/subscription" className="text-amber-300 font-bold underline">
+                    Passez à Gold
+                  </Link>{' '}
+                  pour ajouter un routeur.
+                </div>
+              </div>
+            )}
+
+            {/* ✅ Bouton principal : désactivé si abonnement inactif, CTA Gold si plafond Premium atteint */}
+            {atPremiumLimit ? (
+              <Link
+                href="/subscription"
+                className="w-full h-14 mb-4 flex items-center justify-center gap-2 rounded-2xl text-base font-bold shadow-xl transition-all active:scale-[0.98] bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-amber-600/25"
+              >
+                <Crown className="w-5 h-5" /> Passer à Gold pour ajouter un routeur
+              </Link>
+            ) : (
+              <Link
+                href={canWrite ? '/routers/new' : '#'}
+                onClick={(e) => guardWrite(e, 'créer un routeur')}
+                className={`w-full h-14 mb-4 flex items-center justify-center gap-2 rounded-2xl text-base font-bold shadow-xl transition-all active:scale-[0.98] ${
+                  canWrite
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-amber-600/25'
+                    : 'bg-white/10 text-gray-500 cursor-not-allowed'
+                }`}
+                title={!canWrite ? 'Renouvelez votre abonnement' : ''}
+              >
+                <Plus className="w-5 h-5" /> Nouveau routeur
+              </Link>
+            )}
 
             <div className="relative mb-3">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 // ✅ Aligné avec le backend (MinWithdrawalAmount)
-const MIN_WITHDRAWAL = 100;
+const MIN_WITHDRAWAL = 5000;
 // ✅ Aligné avec le backend (WithdrawalFeeRate)
 const FEE_RATE = 0.05;
 

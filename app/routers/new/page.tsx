@@ -9,18 +9,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createRouter } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { 
-  Check, 
-  Copy, 
-  Terminal, 
-  ChevronLeft, 
-  Wifi, 
-  CheckCircle2, 
-  ArrowRight, 
+import {
+  Check,
+  Copy,
+  Terminal,
+  ChevronLeft,
+  Wifi,
+  CheckCircle2,
+  ArrowRight,
   Router as RouterIcon,
-  Tag
+  Tag,
+  Crown,
 } from 'lucide-react';
 import { useSubscription } from '@/app/context/SubscriptionContext';
+
+// ⚠️ Doit être aligné avec `PremiumMaxRouters` dans subscription_usecase.go
+const PREMIUM_MAX_ROUTERS = 3;
 
 const routerSchema = z.object({
   name: z.string().min(3, 'Le nom doit contenir au moins 3 caractères'),
@@ -33,7 +37,7 @@ export default function NewRouterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [command, setCommand] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [newRouterId, setNewRouterId] = useState<number | null>(null); // ✅ NOUVEAU
+  const [newRouterId, setNewRouterId] = useState<number | null>(null);
 
   const {
     register,
@@ -48,21 +52,79 @@ export default function NewRouterPage() {
   const nameValue = watch('name') || '';
   const step = command ? 2 : 1;
   const { status } = useSubscription();
-useEffect(() => {
-  if (status && !status.active) {
-    toast.error('Renouvelez votre abonnement pour créer un routeur.');
-    router.push('/subscription');
-  }
-}, [status]);
+
+  // ✅ Garde d'accès : abonnement actif requis + plafond Premium
+  // (ne s'applique plus une fois le routeur créé, pour ne pas couper l'étape 2)
+  useEffect(() => {
+    if (!status || command) return;
+
+    if (!status.active) {
+      toast.error('Renouvelez votre abonnement pour créer un routeur.');
+      router.push('/subscription');
+      return;
+    }
+
+    const isPremium = status.subscription?.plan?.level === 'level1';
+    if (!status.is_exempt && isPremium && (status.router_count ?? 0) >= PREMIUM_MAX_ROUTERS) {
+      toast.error(
+        `Limite Premium atteinte (${PREMIUM_MAX_ROUTERS} routeurs). Passez à Gold pour en ajouter.`,
+        { duration: 6000 }
+      );
+      router.push('/subscription');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, command]);
+
   const onSubmit = async (data: RouterForm) => {
     setIsLoading(true);
     try {
       const response = await createRouter(data.name);
       setCommand(response.command);
-      setNewRouterId(response.id); // ✅ NOUVEAU : stocker l'ID
+      setNewRouterId(response.id);
       toast.success('Routeur créé avec succès !');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || error.response?.data || 'Erreur lors de la création');
+      const httpStatus = error?.response?.status;
+      const body = error?.response?.data;
+
+      // ✅ 403 : plafond Premium atteint → CTA Gold
+      if (httpStatus === 403 && body?.error === 'plan_limit_reached') {
+        toast.error(
+          (t) => (
+            <div>
+              <p className="font-bold mb-1 flex items-center gap-1.5">
+                <Crown className="w-4 h-4" /> Limite Premium atteinte
+              </p>
+              <p className="text-xs mb-2">
+                {body.message ||
+                  `Vous avez atteint la limite de ${PREMIUM_MAX_ROUTERS} routeurs du plan Premium.`}
+              </p>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  router.push(body.upgrade_url || '/subscription');
+                }}
+                className="inline-block px-3 py-1 rounded-lg bg-amber-500 text-black text-xs font-bold"
+              >
+                Passer à Gold
+              </button>
+            </div>
+          ),
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      // ✅ 402 : pas d'abonnement actif
+      if (httpStatus === 402) {
+        toast.error(body?.message || 'Un abonnement actif est requis pour créer un routeur.');
+        router.push('/subscription');
+        return;
+      }
+
+      // Autres erreurs
+      toast.error(
+        (typeof body === 'string' ? body : body?.message) || 'Erreur lors de la création'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -275,7 +337,7 @@ useEffect(() => {
               </ol>
             </section>
 
-            {/* ✅ NOUVEAU : Bouton Créer un forfait */}
+            {/* Bouton Créer un forfait */}
             <div className="nr-rise grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ animationDelay: '200ms' }}>
               {newRouterId && (
                 <Link

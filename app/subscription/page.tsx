@@ -31,6 +31,10 @@ import { fr } from 'date-fns/locale';
 // Facturé une seule fois, optionnel pour TOUS les plans (Premium et Gold).
 const LOAD_BALANCING_PRICE = 3000;
 
+// ⚠️ Doit être aligné avec `PremiumMaxRouters` dans subscription_usecase.go.
+// Plafond total du plan Premium (routeurs inclus + supplémentaires).
+const PREMIUM_MAX_ROUTERS = 3;
+
 const POLL_INTERVAL_MS = 3000;
 const POLL_MAX_ATTEMPTS = 20;
 
@@ -40,7 +44,7 @@ function SubscriptionContent() {
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [handledSuccess, setHandledSuccess] = useState(false);
-  const [wantLoadBalancing, setWantLoadBalancing] = useState(false); // ✅ Optionnel (défaut OFF)
+  const [wantLoadBalancing, setWantLoadBalancing] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { status, refreshStatus } = useSubscription();
@@ -123,6 +127,9 @@ function SubscriptionContent() {
   const isExempt = !!status?.is_exempt;
   const blockNavigation = !isActive && !isExempt;
 
+  // ✅ Premium ayant atteint le plafond de routeurs → suggestion Gold
+  const premiumAtLimit = !isGold && (status?.router_count ?? 0) >= PREMIUM_MAX_ROUTERS;
+
   // ✅ LB déjà payé sur une souscription précédente → on ne le refacture pas
   const alreadyPaidLB = !!currentSub?.has_load_balancing;
 
@@ -163,7 +170,6 @@ function SubscriptionContent() {
     }
 
     try {
-      // ✅ On envoie le vrai choix du user (plus de `true` forcé)
       const res: any = await chooseSubscription(plan.id, wantLoadBalancing);
 
       const waveUrl: string | undefined = res.wave_url || res.paydunya_url;
@@ -212,8 +218,8 @@ function SubscriptionContent() {
       level1,
       name: level1 ? 'Premium' : 'Gold',
       desc: level1
-        ? 'Pour démarrer (1 routeur)'
-        : 'Pour les grands réseaux (dès 5 routeurs)',
+        ? `Pour démarrer (${PREMIUM_MAX_ROUTERS} routeurs max)`
+        : `Pour les grands réseaux (dès ${PREMIUM_MAX_ROUTERS + 1} routeurs)`,
     };
   };
 
@@ -242,7 +248,7 @@ function SubscriptionContent() {
                 icon: PlusCircle,
                 title: `${sel.extra_router_price.toLocaleString('fr-FR')} FCFA / routeur supp.`,
                 sub: selMeta?.level1
-                  ? 'Maximum 5 routeurs'
+                  ? `Maximum ${PREMIUM_MAX_ROUTERS} routeurs — passez à Gold au-delà`
                   : 'Pour chaque routeur supplémentaire',
               },
             ]
@@ -387,7 +393,7 @@ function SubscriptionContent() {
                     <p className="text-lg font-bold text-white mt-0.5 tabular-nums">
                       {currentSub.router_count}{' '}
                       <span className="text-xs font-medium text-gray-400">
-                        / {currentSub.plan?.included_routers || 0}
+                        / {isGold ? currentSub.plan?.included_routers || 0 : PREMIUM_MAX_ROUTERS}
                       </span>
                     </p>
                   </div>
@@ -395,13 +401,38 @@ function SubscriptionContent() {
               </section>
 
               {!isGold && (
-                <section className="sub-enter rounded-[28px] border border-amber-500/20 bg-gradient-to-r from-amber-900/40 to-black p-5">
-                  <h3 className="text-base font-bold text-white mb-1">
-                    Passez à la vitesse supérieure
-                  </h3>
-                  <p className="text-sm text-gray-400 mb-4">
-                    Débloquez plus de routeurs et les fonctionnalités avancées avec Gold.
-                  </p>
+                <section
+                  className={`sub-enter rounded-[28px] border p-5 ${
+                    premiumAtLimit
+                      ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-amber-900/10'
+                      : 'border-amber-500/20 bg-gradient-to-r from-amber-900/40 to-black'
+                  }`}
+                >
+                  {premiumAtLimit ? (
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                        <Crown className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-white leading-snug">
+                          Limite Premium atteinte ({PREMIUM_MAX_ROUTERS} routeurs)
+                        </h3>
+                        <p className="text-sm text-amber-100/80 mt-1 leading-snug">
+                          Pour ajouter un routeur supplémentaire, passez au plan Gold — avec plus de
+                          fonctionnalités.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="text-base font-bold text-white mb-1">
+                        Passez à la vitesse supérieure
+                      </h3>
+                      <p className="text-sm text-gray-400 mb-4">
+                        Débloquez plus de routeurs et les fonctionnalités avancées avec Gold.
+                      </p>
+                    </>
+                  )}
                   <button
                     onClick={() => {
                       const goldPlan = plans.find((p) => p.level === 'level2');
