@@ -7,8 +7,9 @@ import { getProfiles, deleteProfile, getRouter, type HotspotProfile, type Router
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import GrantAccessModal from '@/components/GrantAccessModal'; 
+import { useSubscription } from '@/app/context/SubscriptionContext';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { useSubscription } from '@/app/context/SubscriptionContext'; // ✅ NOUVEAU
 
 type Filter = 'all' | 'active' | 'inactive';
 
@@ -38,8 +39,8 @@ export default function RouterProfilesPage() {
   const [filter, setFilter] = useState<Filter>('all');
   const [toDelete, setToDelete] = useState<HotspotProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showGrantModal, setShowGrantModal] = useState(false); // ✅ NOUVEAU
 
-  // ✅ NOUVEAU
   const { status: subscriptionStatus } = useSubscription();
   const canWrite = subscriptionStatus?.active ?? false;
 
@@ -51,6 +52,18 @@ export default function RouterProfilesPage() {
     }
     return true;
   };
+
+  const openGrantModal = () => {
+  if (!routerId) {
+    toast.error('Routeur introuvable.');
+    return;
+  }
+  if (!canWrite) {
+    toast.error('Renouvelez votre abonnement pour accorder un accès.');
+    return;
+  }
+  setShowGrantModal(true);
+};
 
   useEffect(() => {
     if (!routerId) return;
@@ -169,19 +182,34 @@ export default function RouterProfilesPage() {
             </div>
           </div>
 
-          <Link
-            href={canWrite ? `/profiles/new?router_id=${routerId}` : '#'}
-            onClick={(e) => guardWrite(e, 'créer un forfait')}
-            className={`hidden shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all sm:inline-flex ${
-              canWrite
-                ? 'bg-[#d97706] text-white shadow-lg shadow-amber-600/20 hover:bg-[#b45309] active:scale-95'
-                : 'bg-white/5 text-gray-500 cursor-not-allowed'
-            }`}
-            title={!canWrite ? 'Renouvelez votre abonnement' : ''}
-          >
-            <span className="text-lg leading-none">+</span>
-            Nouveau forfait
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* ✅ NOUVEAU : accès direct par MAC */}
+            <button
+              onClick={openGrantModal}
+              className={`rounded-xl px-3 py-2 text-xs font-bold transition-all sm:px-4 sm:text-sm ${
+                canWrite
+                  ? 'bg-amber-500 text-black active:scale-95'
+                  : 'bg-white/5 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!canWrite ? 'Renouvelez votre abonnement' : ''}
+            >
+              🔑 Accès direct par MAC
+            </button>
+
+            <Link
+              href={canWrite ? `/profiles/new?router_id=${routerId}` : '#'}
+              onClick={(e) => guardWrite(e, 'créer un forfait')}
+              className={`hidden shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all sm:inline-flex ${
+                canWrite
+                  ? 'bg-[#d97706] text-white shadow-lg shadow-amber-600/20 hover:bg-[#b45309] active:scale-95'
+                  : 'bg-white/5 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!canWrite ? 'Renouvelez votre abonnement' : ''}
+            >
+              <span className="text-lg leading-none">+</span>
+              Nouveau forfait
+            </Link>
+          </div>
         </header>
 
         {profiles.length > 0 && (
@@ -293,7 +321,6 @@ export default function RouterProfilesPage() {
               </div>
             </article>
           ))}
-
           {profiles.length === 0 && (
             <div className="col-span-full flex flex-col items-center rounded-2xl border border-neutral-800/80 bg-[#111] px-6 py-16 text-center">
               <div className="mb-4 text-3xl text-neutral-700">
@@ -357,6 +384,17 @@ export default function RouterProfilesPage() {
         onCancel={() => setToDelete(null)}
         isLoading={deleting}
       />
+
+      {/* ✅ NOUVEAU */}
+      {routerId !== null && (
+  <GrantAccessModal
+    routerId={routerId}
+    profiles={profiles}
+    isOpen={showGrantModal}
+    onClose={() => setShowGrantModal(false)}
+    onSuccess={loadData}
+  />
+)}
     </Layout>
   );
 }

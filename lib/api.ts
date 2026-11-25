@@ -557,3 +557,25 @@ export const listRouterTickets = async (routerId: number): Promise<TicketSummary
   const response = await api.get<TicketSummary[]>(`/api/routers/${routerId}/tickets`);
   return response.data;
 };
+export async function grantAccessByMAC(
+  routerId: number,
+  data: { mac_address: string; profile_id: number; duration_minutes?: number }
+) {
+  const token = localStorage.getItem('token');
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || 'https://api.mbeejfepal.com'}/api/routers/${routerId}/grant-access`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || 'Erreur lors de l\'octroi d\'accès');
+  }
+  return res.json();
+}
