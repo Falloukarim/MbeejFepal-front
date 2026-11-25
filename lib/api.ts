@@ -88,6 +88,8 @@ export interface FinancialOverview {
   total_wisp_wallets: number;
   total_mbeej_revenue: number;
   total_payouts_paid: number;
+  total_subscription_revenue: number; // ✅ Nouveau
+  total_withdrawal_fees: number;
 }
 
 export const getFinancialOverview = async (): Promise<FinancialOverview> => {

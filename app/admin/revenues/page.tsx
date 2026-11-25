@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
 import { getFinancialOverview, type FinancialOverview } from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Wallet, TrendingUp, ArrowDownRight, ArrowUpRight, ShieldCheck, Activity } from 'lucide-react';
+import { Wallet, TrendingUp, ArrowDownRight, ArrowUpRight, ShieldCheck, Activity, CreditCard, Landmark } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function AdminRevenuesPage() {
@@ -28,16 +28,22 @@ export default function AdminRevenuesPage() {
     );
   }
 
+  // ✅ Gestion des valeurs par défaut (au cas où le backend n'a pas encore redémarré)
+  const subscriptionRevenue = data.total_subscription_revenue || 0;
+  const withdrawalFees = data.total_withdrawal_fees || 0;
+
   // Préparation des données pour le graphique
   const chartData = [
     { name: 'Encaissé', montant: data.total_payin, fill: '#3b82f6' },
-    { name: 'Dû aux WISP', montant: data.total_wisp_wallets, fill: '#f59e0b' },
-    { name: 'Tes Commissions', montant: data.total_mbeej_revenue, fill: '#10b981' },
+    { name: 'Wallets WISP', montant: data.total_wisp_wallets, fill: '#f59e0b' },
+    { name: 'Abonnements', montant: subscriptionRevenue, fill: '#10b981' },
+    { name: 'Commissions 5%', montant: withdrawalFees, fill: '#8b5cf6' },
     { name: 'Déjà versé', montant: data.total_payouts_paid, fill: '#ef4444' },
   ];
 
-  // Calcul de la trésorerie disponible (Ce qu'il te reste sur ton compte)
-  const cashAvailable = data.total_payin - data.total_payouts_paid;
+  // ✅ CORRECTION MATHÉMATIQUE : 
+  // Trésorerie Nette = (Ce qui est entré) - (Ce qui est déjà sorti) - (Ce qui est encore dû aux WISP)
+  const cashAvailable = data.total_payin - data.total_payouts_paid - data.total_wisp_wallets;
 
   return (
     <Layout>
@@ -56,9 +62,10 @@ export default function AdminRevenuesPage() {
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 shadow-lg">
             <div className="flex items-center gap-2 text-blue-400 mb-2">
               <ArrowUpRight className="w-5 h-5" />
-              <p className="text-sm font-bold">Argent entré (Clients)</p>
+              <p className="text-sm font-bold">Argent entré (Total)</p>
             </div>
             <p className="text-3xl font-black text-white">{data.total_payin.toLocaleString()} <span className="text-sm text-gray-500">FCFA</span></p>
+            <p className="text-xs text-gray-500 mt-2">Ventes hotspot + Abonnements</p>
           </div>
 
           {/* Dû aux WISP */}
@@ -68,15 +75,30 @@ export default function AdminRevenuesPage() {
               <p className="text-sm font-bold">Solde des Wallets (Dette)</p>
             </div>
             <p className="text-3xl font-black text-white">{data.total_wisp_wallets.toLocaleString()} <span className="text-sm text-gray-500">FCFA</span></p>
+            <p className="text-xs text-gray-500 mt-2">Fonds en attente de retrait</p>
           </div>
 
-          {/* Tes Revenus */}
-          <div className="bg-gradient-to-br from-emerald-500/20 to-gray-900 border border-emerald-500/30 rounded-2xl p-5 shadow-lg">
+          {/* Revenus Mbeej (Ventilés) */}
+          <div className="bg-gradient-to-br from-emerald-500/20 to-gray-900 border border-emerald-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
             <div className="flex items-center gap-2 text-emerald-400 mb-2">
               <TrendingUp className="w-5 h-5" />
-              <p className="text-sm font-bold">Tes Revenus (Commissions)</p>
+              <p className="text-sm font-bold">Revenus Mbeej</p>
             </div>
-            <p className="text-3xl font-black text-emerald-400">{data.total_mbeej_revenue.toLocaleString()} <span className="text-sm text-emerald-500">FCFA</span></p>
+            <p className="text-3xl font-black text-emerald-400">
+              {data.total_mbeej_revenue.toLocaleString()} <span className="text-sm text-emerald-500">FCFA</span>
+            </p>
+            
+            {/* ✅ Ventilation des revenus */}
+            <div className="mt-4 pt-3 border-t border-emerald-500/20 space-y-2 text-xs text-emerald-300/80">
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Abonnements SaaS</span>
+                <span className="font-bold text-emerald-400">{subscriptionRevenue.toLocaleString()} F</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5" /> Commissions (5%)</span>
+                <span className="font-bold text-emerald-400">{withdrawalFees.toLocaleString()} F</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -97,7 +119,14 @@ export default function AdminRevenuesPage() {
                   itemStyle={{ color: '#fff' }}
                   formatter={(value: any) => [`${Number(value).toLocaleString()} FCFA`, 'Montant']}
                 />
-                <Bar dataKey="montant" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="montant" fill="#10b981" radius={[8, 8, 0, 0]}>
+                  {/* Optionnel : Colorer chaque barre différemment selon la donnée */}
+                  {/* {
+                    chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))
+                  } */}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -116,12 +145,13 @@ export default function AdminRevenuesPage() {
             </div>
             <div className="flex items-center justify-between border-b border-white/5 pb-3">
               <span className="text-gray-400">Fonds en attente de retrait (Wallets)</span>
-              <span className="font-bold text-amber-400">{data.total_wisp_wallets.toLocaleString()} FCFA</span>
+              <span className="font-bold text-amber-400">-{data.total_wisp_wallets.toLocaleString()} FCFA</span>
             </div>
             
             <div className="flex items-center justify-between pt-2">
               <div>
                 <span className="text-white font-bold block">Trésorerie Nette (Cash en main)</span>
+                <span className="text-xs text-gray-500">Argent réellement disponible sur ton compte Wave</span>
               </div>
               <span className="text-2xl font-black text-blue-400">{cashAvailable.toLocaleString()} FCFA</span>
             </div>
