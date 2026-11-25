@@ -714,8 +714,8 @@ const steps = [
 const comparison = [
   { title: 'Sauvegarde automatique', others: 'Abonnement mensuel', ours: 'Incluse, script à vie' },
   { title: 'Codes & QR codes', others: 'Messages WhatsApp facturés', ours: 'Illimités, sans frais' },
-  { title: 'Répartition de charge', others: 'Option facturée très cher', ours: 'Multi-WAN + failover, option unique de 3 000 F' },
-  { title: 'Tarifs', others: 'Frais cachés et de mise en service', ours: 'Prix fixe, 6 500 F/mois pour 10 routeurs · retrait 5 %' },
+  { title: 'Répartition de charge', others: 'Option facturée très cher', ours: 'Multi-WAN + failover, option unique de 2 000 F' },
+  { title: 'Tarifs', others: 'Frais cachés et de mise en service', ours: 'Prix fixe, 3 900 F/mois pour 3 routeurs · retrait 5 %' },
 ];
 
 export default function HomePage() {
