@@ -93,9 +93,6 @@ export default function GrantAccessModal({ routerId, profiles, isOpen, onClose, 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Durée personnalisée (optionnel)
-            </label>
             <div className="relative">
               <input
                 type="number"

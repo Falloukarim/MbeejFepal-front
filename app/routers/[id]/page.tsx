@@ -663,10 +663,10 @@ export default function RouterDetailPage() {
               <h3 className="mb-5 flex items-center gap-2 text-lg font-semibold text-white"><ShieldAlert className="h-5 w-5 text-amber-500" /> Limite de consommation journalière</h3>
               <div className="flex flex-wrap items-center gap-4">
                 <input
-                  {...register('daily_quota_gb', { valueAsNumber: true })}
-                  type="number" step="0.1" min="0"
-                  className="w-32 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500"
-                />
+  {...register('daily_quota_gb', { valueAsNumber: true })}
+  type="number" step="any" min="0"
+  className="w-32 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none transition focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500"
+/>
                 <span className="font-medium text-gray-400">Go / jour</span>
                 {Number(watchedQuota) === 0 && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-1 text-xs font-semibold text-green-400">
