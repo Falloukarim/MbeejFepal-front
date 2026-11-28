@@ -37,7 +37,7 @@ export default function AdminRevenuesPage() {
     { name: 'Encaissé', montant: data.total_payin, fill: '#3b82f6' },
     { name: 'Wallets WISP', montant: data.total_wisp_wallets, fill: '#f59e0b' },
     { name: 'Abonnements', montant: subscriptionRevenue, fill: '#10b981' },
-    { name: 'Commissions 5%', montant: withdrawalFees, fill: '#8b5cf6' },
+    { name: 'Commissions (%)', montant: withdrawalFees, fill: '#8b5cf6' },
     { name: 'Déjà versé', montant: data.total_payouts_paid, fill: '#ef4444' },
   ];
 
@@ -95,7 +95,7 @@ export default function AdminRevenuesPage() {
                 <span className="font-bold text-emerald-400">{subscriptionRevenue.toLocaleString()} F</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5" /> Commissions (5%)</span>
+                <span className="flex items-center gap-1.5"><Landmark className="w-3.5 h-3.5" /> Commissions (%)</span>
                 <span className="font-bold text-emerald-400">{withdrawalFees.toLocaleString()} F</span>
               </div>
             </div>
